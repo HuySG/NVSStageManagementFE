@@ -14,13 +14,9 @@ type BoardProps = {
 const taskStatus = ["To Do", "Work In Progress", "Under Review", "Completed"];
 
 const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
-  const {
-    data: tasks,
-    isLoading,
-    error,
-  } = useGetTasksQuery({ projectId: Number(id) });
+  const { data: tasks, isLoading, error } = useGetTasksQuery({ projectId: id });
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
-  const moveTask = (taskId: number, toStatus: string) => {
+  const moveTask = (taskId: string, toStatus: string) => {
     updateTaskStatus({ taskId, status: toStatus });
   };
   if (isLoading) return <div>Loading...</div>;
@@ -45,7 +41,7 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
 type TaskColumnProps = {
   status: string;
   tasks: TaskType[];
-  moveTask: (taskId: number, toStatus: string) => void;
+  moveTask: (taskId: string, toStatus: string) => void;
   setIsModaNewTasklOpen: (isOpen: boolean) => void;
 };
 const TaskColumn = ({
@@ -56,7 +52,7 @@ const TaskColumn = ({
 }: TaskColumnProps) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: "task",
-    drop: (item: { id: number }) => moveTask(item.id, status),
+    drop: (item: { id: string }) => moveTask(item.id, status),
     collect: (monitor) => ({ isOver: !!monitor.isOver() }),
   }));
 
@@ -106,7 +102,7 @@ const TaskColumn = ({
       {tasks
         .filter((task) => task.status === status)
         .map((task) => (
-          <Task key={task.id} task={task} />
+          <Task key={task.taskID} task={task} />
         ))}
     </div>
   );
@@ -118,21 +114,21 @@ type TaskProps = {
 const Task = ({ task }: TaskProps) => {
   const [{ isDragging }, drop] = useDrag(() => ({
     type: "task",
-    item: { id: task.id },
+    item: { id: task.taskID },
     collect: (monitor: any) => ({
       isDragging: !!monitor.isDragging(),
     }),
   }));
-  const taskTagsSplit = task.tags ? task.tags.split(",") : [];
+  const taskTagsSplit = task.tag ? task.tag.split(",") : [];
   const formattedStartDate = task.startDate
     ? format(new Date(task.startDate), "P")
     : "";
   [];
-  const formattedDueDate = task.dueDate
-    ? format(new Date(task.dueDate), "P")
+  const formattedDueDate = task.endDate
+    ? format(new Date(task.endDate), "P")
     : "";
 
-  const numberOfComments = (task.comments && task.comments.length) || 0;
+  // const numberOfComments = (task.comments && task.comments.length) || 0;
   const PriorityTag = ({ priority }: { priority: TaskType["priority"] }) => (
     <div
       className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -161,8 +157,8 @@ const Task = ({ task }: TaskProps) => {
     >
       {task.attachments && task.attachments.length > 0 && (
         <Image
-          src={`/${task.attachments[0].fileURL}`}
-          alt={task.attachments[0].fileName}
+          src={`/${task.attachments}`}
+          alt={task.attachments}
           width={400}
           height={200}
           className="h-auto w-full rounded-t-md"
@@ -190,11 +186,11 @@ const Task = ({ task }: TaskProps) => {
         </div>
         <div className="my-3 flex justify-between">
           <h4 className="text-md font-bold dark:text-white">{task.title}</h4>
-          {typeof task.points === "number" && (
+          {/* {typeof task.points === "number" && (
             <div className="text-xs font-semibold dark:text-white">
               {task.points} pts
             </div>
-          )}
+          )} */}
         </div>
         <div className="text-xs text-gray-500 dark:text-neutral-500">
           {formattedStartDate && <span>{formattedStartDate} - </span>}
@@ -206,17 +202,18 @@ const Task = ({ task }: TaskProps) => {
         <div className="mt-4 border-t border-gray-200 dark:border-stroke-dark" />
         <div className="mt-3 flex items-center justify-between">
           <div className="flex -space-x-[6px] overflow-hidden">
-            {task.assignee && (
+            {task.assignedUsers?.map((taskUser) => (
               <Image
-                key={task.assignee.userId}
-                src={`/${task.assignee.profilePictureUrl!}`}
-                alt={task.assignee.username}
+                key={taskUser.user?.id} // Đặt key bằng userId
+                src={`/${taskUser.user?.pictureProfile!}`} // Lấy avatar đúng
+                alt={taskUser.user?.fullName || "User"} // Tránh lỗi nếu không có username
                 width={30}
                 height={30}
                 className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
               />
-            )}
-            {task.author && (
+            ))}
+
+            {/* {task.author && (
               <Image
                 key={task.author.userId}
                 src={`/${task.author.profilePictureUrl!}`}
@@ -225,14 +222,14 @@ const Task = ({ task }: TaskProps) => {
                 height={30}
                 className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
               />
-            )}
+            )} */}
           </div>
-          <div className="flex items-center text-gray-500 dark:text-neutral-500">
+          {/* <div className="flex items-center text-gray-500 dark:text-neutral-500">
             <MessageSquareMore size={20} />
             <span className="ml-1 text-sm dark:text-neutral-400">
               {numberOfComments}
             </span>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

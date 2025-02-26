@@ -10,7 +10,7 @@ type Props = {
 function TaskCard({ task }: Props) {
   return (
     <div className="mb-3 rounded bg-white p-4 shadow dark:bg-dark-secondary dark:text-white">
-      {task.attachments && task.attachments.length > 0 && (
+      {/* {task.attachments && task.attachments.length > 0 && (
         <div>
           <strong>Attachments:</strong>
           <div className="flex flex-wrap">
@@ -25,9 +25,9 @@ function TaskCard({ task }: Props) {
             )}
           </div>
         </div>
-      )}
+      )} */}
       <p>
-        <strong>ID:</strong> {task.id}
+        <strong>ID:</strong> {task.taskID}
       </p>
       <p>
         <strong>Title:</strong> {task.title}
@@ -43,23 +43,22 @@ function TaskCard({ task }: Props) {
         <strong>Priority:</strong> {task.priority}
       </p>
       <p>
-        <strong>Tags:</strong> {task.tags || "No tags"}
+        <strong>Tags:</strong> {task.tag || "No tags"}
       </p>
       <p>
         <strong>Start Date:</strong>{" "}
         {task.startDate ? format(new Date(task.startDate), "P") : "Not set"}
       </p>
       <p>
-        <strong>Due Date:</strong>{" "}
-        {task.dueDate ? format(new Date(task.dueDate), "P") : "Not set"}
+        <strong>End Date:</strong>{" "}
+        {task.endDate ? format(new Date(task.endDate), "P") : "Not set"}
       </p>
       <p>
-        <strong>Author:</strong>{" "}
-        {task.author ? task.author.username : "Unknown"}
+        <strong>Author:</strong> {task.assignee ? task.assignee : "Unknown"}
       </p>
       <p>
         <strong>Assignee:</strong>{" "}
-        {task.assignee ? task.assignee.username : "Unassigned"}
+        {task.assignee ? task.assignee : "Unassigned"}
       </p>
     </div>
   );
