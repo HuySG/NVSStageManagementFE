@@ -17,7 +17,8 @@ export interface Project {
   endTime: string;
   department: string;
   createdBy: string;
-  tasks?: Task[];
+  tasks: Task[];
+  taskID: string;
 }
 
 export enum Priority {
@@ -29,28 +30,20 @@ export enum Priority {
 }
 
 export enum Status {
-  ToDo = "To Do",
-  WorkInProgress = "Work In Progress",
-  UnderReview = "Under Review",
+  ToDo = "ToDo",
+  WorkInProgress = "WorkInProgress",
+  UnderReview = "UnderReview",
   Completed = "Completed",
 }
 
-// export interface User {
-//   userId?: number;
-//   username: string;
-//   email: string;
-//   profilePictureUrl?: string;
-//   cognitoId?: string;
-//   teamId?: number;
-// }
 export interface User {
   id: string;
-  fullName: string;
-  dayOfBirth: string;
+  fullName?: string;
+  dayOfBirth?: string;
   email: string;
   password: string;
   department: Department;
-  pictureProfile: string;
+  pictureProfile?: string;
   createDate: string;
   roleID: string;
   status: string;
@@ -62,38 +55,12 @@ export interface Department {
 }
 
 export interface TaskUser {
-  taskId: string;
-  userId: string;
-  task?: Task; // Tham chiếu đến Task
-  user?: User; // Tham chiếu đến User
+  userID: string; // Phải khớp với API trả về
+  fullName?: string;
+  dayOfBirth?: string;
+  email?: string;
+  pictureProfile?: string;
 }
-// export interface Attachment {
-//   id: number;
-//   fileURL: string;
-//   fileName: string;
-//   taskId: number;
-//   uploadedById: number;
-// }
-
-// export interface Task {
-//   id: number;
-//   title: string;
-//   description?: string;
-//   status?: Status;
-//   priority?: Priority;
-//   tags?: string;
-//   startDate?: string;
-//   dueDate?: string;
-//   points?: number;
-//   projectId: number;
-//   authorUserId?: number;
-//   assignedUserId?: number;
-
-//   author?: User;
-//   assignee?: User;
-//   comments?: Comment[];
-//   attachments?: Attachment[];
-// }
 
 export interface Task {
   taskID: string;
@@ -107,20 +74,33 @@ export interface Task {
   status: string;
   attachments: string;
   assignedUsers: TaskUser[];
+  projectID: string;
 }
+interface ProjectTask {
+  projectId: string;
+  title: string;
+  description: string;
+  content: string;
+  startTime: string;
+  endTime: string;
+  department: string;
+  createdBy: string;
+  status: string;
+  taskID?: string;
+  tasks: Task[];
+}
+// export interface SearchResults {
+//   tasks?: Task[];
+//   projects?: Project[];
+//   users?: User[];
+// }
 
-export interface SearchResults {
-  tasks?: Task[];
-  projects?: Project[];
-  users?: User[];
-}
-
-export interface Team {
-  teamId: number;
-  teamName: string;
-  productOwnerUserId?: number;
-  projectManagerUserId?: number;
-}
+// export interface Team {
+//   teamId: number;
+//   teamName: string;
+//   productOwnerUserId?: number;
+//   projectManagerUserId?: number;
+// }
 // console.log("Base URL:", process.env.NEXT_PUBLIC_API_BASE_URL);
 export const api = createApi({
   baseQuery: fetchBaseQuery({
@@ -136,7 +116,7 @@ export const api = createApi({
     // },
   }),
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "Teams"],
+  tagTypes: ["Projects", "Tasks", "Users", "ProjectTasks"],
   endpoints: (build) => ({
     // getAuthUser: build.query({
     //   queryFn: async (_, _queryApi, _extraoptions, fetchWithBQ) => {
@@ -201,15 +181,19 @@ export const api = createApi({
       ],
     }),
     getUsers: build.query<User[], void>({
-      query: () => "users",
+      query: () => "user",
       providesTags: ["Users"],
     }),
-    getTeams: build.query<Team[], void>({
-      query: () => "teams",
-      providesTags: ["Teams"],
-    }),
-    search: build.query<SearchResults, string>({
-      query: (query) => `search?query=${query}`,
+    // getTeams: build.query<Team[], void>({
+    //   query: () => "teams",
+    //   providesTags: ["Teams"],
+    // }),
+    // search: build.query<SearchResults, string>({
+    //   query: (query) => `search?query=${query}`,
+    // }),
+    getProjectTasks: build.query<ProjectTask[], void>({
+      query: () => "projects/project-task",
+      providesTags: ["ProjectTasks"],
     }),
   }),
 });
@@ -220,9 +204,10 @@ export const {
   useGetTasksQuery,
   useCreateTaskMutation,
   useUpdateTaskStatusMutation,
-  useSearchQuery,
+  // useSearchQuery,
   useGetUsersQuery,
-  useGetTeamsQuery,
+  // useGetTeamsQuery,
   useGetTasksByUserQuery,
+  useGetProjectTasksQuery,
   // useGetAuthUserQuery,
 } = api;

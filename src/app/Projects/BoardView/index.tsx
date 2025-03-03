@@ -11,7 +11,7 @@ type BoardProps = {
   id: string;
   setIsModaNewTasklOpen: (isOpen: boolean) => void;
 };
-const taskStatus = ["To Do", "Work In Progress", "Under Review", "Completed"];
+const taskStatus = ["ToDo", "WorkInProgress", "UnderReview", "Completed"];
 
 const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
   const { data: tasks, isLoading, error } = useGetTasksQuery({ projectId: id });
@@ -58,9 +58,9 @@ const TaskColumn = ({
 
   const tasksCount = tasks.filter((task) => task.status === status).length;
   const statusColor: any = {
-    "To Do": "#2563EB",
-    "Work In Progress": "#059669",
-    "Under Review": "#D97706",
+    ToDo: "#2563EB",
+    WorkInProgress: "#059669",
+    UnderReview: "#D97706",
     Completed: "#000000",
   };
   return (
@@ -202,16 +202,17 @@ const Task = ({ task }: TaskProps) => {
         <div className="mt-4 border-t border-gray-200 dark:border-stroke-dark" />
         <div className="mt-3 flex items-center justify-between">
           <div className="flex -space-x-[6px] overflow-hidden">
-            {task.assignedUsers?.map((taskUser) => (
-              <Image
-                key={taskUser.user?.id} // Đặt key bằng userId
-                src={`/${taskUser.user?.pictureProfile!}`} // Lấy avatar đúng
-                alt={taskUser.user?.fullName || "User"} // Tránh lỗi nếu không có username
-                width={30}
-                height={30}
-                className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
-              />
-            ))}
+            {task.assignedUsers &&
+              task.assignedUsers?.map((taskUser) => (
+                <Image
+                  key={taskUser.userID} // Đặt key bằng userId
+                  src={`/${taskUser.pictureProfile}`} // Lấy avatar đúng
+                  alt={taskUser.fullName! || "User"} // Tránh lỗi nếu không có username
+                  width={30}
+                  height={30}
+                  className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
+                />
+              ))}
 
             {/* {task.author && (
               <Image

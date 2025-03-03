@@ -33,8 +33,8 @@ const columns: GridColDef[] = [
     width: 75,
   },
   {
-    field: "tags",
-    headerName: "Tags",
+    field: "tag",
+    headerName: "Tag",
     width: 130,
   },
   {
@@ -43,30 +43,32 @@ const columns: GridColDef[] = [
     width: 130,
   },
   {
-    field: "dueDate",
-    headerName: "Due Date",
+    field: "endDate",
+    headerName: "End Date",
     width: 130,
   },
-  {
-    field: "author",
-    headerName: "Author",
-    width: 150,
-    renderCell: (params) => params.value?.author || "Unknown",
-  },
+
   {
     field: "assignee",
     headerName: "Assignee",
-    width: 150,
-    renderCell: (params) => params.value?.assignee || "Unassigned",
+    width: 200,
+    renderCell: (params) => {
+      // Định nghĩa kiểu của assignedUsers
+      const assignedUsers: { userID: string; fullName: string }[] =
+        params.row.assignedUsers || [];
+
+      // Lấy danh sách fullName của users
+      const assigneeNames = assignedUsers
+        .map((user) => user.fullName)
+        .join(", ");
+
+      return assigneeNames || "Unassigned";
+    },
   },
 ];
 function TableView({ id, setIsModalNewTaskOpen }: Props) {
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
-  const {
-    data: tasks,
-    error,
-    isLoading,
-  } = useGetTasksQuery({ projectId: Number(id) });
+  const { data: tasks, error, isLoading } = useGetTasksQuery({ projectId: id });
 
   if (isLoading) return <div>Loading...</div>;
   if (error || !tasks) return <div>An error occurred while fetching tasks</div>;
@@ -89,6 +91,7 @@ function TableView({ id, setIsModalNewTaskOpen }: Props) {
       <DataGrid
         rows={tasks || []}
         columns={columns}
+        getRowId={(row) => row.taskID} // Chỉ định taskID làm id
         className={dataGridClassNames}
         sx={dataGridSxStyles(isDarkMode)}
       />

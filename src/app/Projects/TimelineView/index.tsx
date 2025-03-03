@@ -9,11 +9,7 @@ type TaskTypeItems = "task" | "milestone" | "project";
 
 function Timeline({ id, setIsModalNewTaskOpen }: Props) {
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
-  const {
-    data: tasks,
-    error,
-    isLoading,
-  } = useGetTasksQuery({ projectId: Number(id) });
+  const { data: tasks, error, isLoading } = useGetTasksQuery({ projectId: id });
   const [displayOptions, setDisplayOptions] = useState<DisplayOption>({
     viewMode: ViewMode.Month,
     locale: "en-US",
@@ -22,11 +18,16 @@ function Timeline({ id, setIsModalNewTaskOpen }: Props) {
     return (
       tasks?.map((task) => ({
         start: new Date(task.startDate as string),
-        end: new Date(task.dueDate as string),
+        end: new Date(task.endDate as string),
         name: task.title,
-        id: `Task-${task.id}`,
+        id: `Task-${task.taskID}`,
         type: "task" as TaskTypeItems,
-        progress: task.points ? (task.points / 10) * 100 : 0,
+        progress:
+          task.status === "Completed"
+            ? 100
+            : task.status === "In Progress"
+              ? 50
+              : 0,
         isDisabled: false,
       })) || []
     );

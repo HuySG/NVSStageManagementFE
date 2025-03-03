@@ -2,7 +2,12 @@
 
 import { useAppSelector } from "@/app/redux";
 import Header from "@/components/Header";
-import { useGetProjectsQuery } from "@/state/api";
+import {
+  useGetProjectsQuery,
+  useGetProjectTasksQuery,
+  useGetTasksQuery,
+} from "@/state/api";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { DisplayOption, Gantt, ViewMode } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
 import React, { useMemo, useState } from "react";
@@ -12,25 +17,47 @@ type TaskTypeItems = "task" | "milestone" | "project";
 const Timeline = () => {
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
   const { data: projects, isLoading, isError } = useGetProjectsQuery();
-
+  // const {data: tasks} = useGetTasksQuery();
+  const { data: allTasks } = useGetProjectTasksQuery();
   const [displayOptions, setDisplayOptions] = useState<DisplayOption>({
     viewMode: ViewMode.Month,
     locale: "en-US",
   });
 
   const ganttTasks = useMemo(() => {
-    return (
-      projects?.map((project) => ({
-        start: new Date(project.startDate as string),
-        end: new Date(project.endDate as string),
-        name: project.name,
-        id: `Project-${project.id}`,
+    if (!projects) return [];
+
+    return projects.map((project) => {
+      // Lọc tasks thuộc về project này
+      const projectTasks =
+        allTasks?.filter((task) => task.projectId === project.projectID) || [];
+
+      const totalTasks = projectTasks.length;
+      const completedTasks = projectTasks.filter(
+        (task) => task.status === "Completed",
+      ).length;
+
+      // Tính phần trăm tiến độ
+      const progressPercent =
+        totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+      console.group(`Project: ${project.title}`);
+      console.log("Total Tasks:", totalTasks);
+      console.log("Completed Tasks:", completedTasks);
+      console.log("Progress:", progressPercent.toFixed(2), "%");
+      console.groupEnd();
+
+      return {
+        start: new Date(project.startTime),
+        end: new Date(project.endTime),
+        name: project.title,
+        id: `Project-${project.projectID}`,
         type: "project" as TaskTypeItems,
-        progress: 50,
+        progress: progressPercent,
         isDisabled: false,
-      })) || []
-    );
-  }, [projects]);
+      };
+    });
+  }, [projects, allTasks]);
 
   const handleViewModeChange = (
     event: React.ChangeEvent<HTMLSelectElement>,
