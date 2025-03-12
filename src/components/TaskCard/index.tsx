@@ -22,15 +22,16 @@ function TaskCard({ task }: Props) {
         <div>
           <strong>Attachments:</strong>
           <div className="flex flex-wrap">
-            {task.attachments && task.attachments.length > 0 && (
+            {task.attachments?.map((attachment) => (
               <Image
-                src={`/${task.attachments}`}
-                alt={task.attachments}
+                key={attachment.id}
+                src={`/${attachment.fileURL}`}
+                alt={attachment.fileName}
                 width={400}
                 height={200}
-                className="rounded-md"
+                className="h-auto w-full rounded-t-md"
               />
-            )}
+            ))}
           </div>
         </div>
       )}

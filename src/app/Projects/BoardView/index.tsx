@@ -1,11 +1,19 @@
-import { useGetTasksQuery, useUpdateTaskStatusMutation } from "@/state/api";
-import React from "react";
+import {
+  TaskUser,
+  useGetTasksQuery,
+  useGetUsersQuery,
+  User,
+  useUpdateTaskMutation,
+  useUpdateTaskStatusMutation,
+} from "@/state/api";
+import React, { useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Task as TaskType } from "@/state/api";
-import { EllipsisVertical, MessageSquareMore, Plus } from "lucide-react";
+import { EllipsisVertical, MessageSquareMore, Plus, X } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
+import EditTaskModal from "@/components/EditTaskModal";
 
 type BoardProps = {
   id: string;
@@ -13,29 +21,71 @@ type BoardProps = {
 };
 const taskStatus = ["ToDo", "WorkInProgress", "UnderReview", "Completed"];
 
+const convertUsersToTaskUsers = (users: User[]): TaskUser[] => {
+  return users.map((user) => ({
+    userID: user.id, // Assuming 'id' in User corresponds to 'userID' in TaskUser
+    fullName: user.fullName, // Adjust based on actual User type properties
+    pictureProfile: user.pictureProfile, // Adjust based on actual User type properties
+  }));
+};
+
 const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
-  const { data: tasks, isLoading, error } = useGetTasksQuery({ projectId: id });
+  const [editingTask, setEditingTask] = useState<TaskType | null>(null);
+  const {
+    data: tasks,
+    isLoading,
+    error,
+    refetch,
+  } = useGetTasksQuery({ showId: id }, { refetchOnMountOrArgChange: true });
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
-  const moveTask = (taskId: string, toStatus: string) => {
-    updateTaskStatus({ taskId, status: toStatus });
+  const [updateTask] = useUpdateTaskMutation();
+  const { data: users } = useGetUsersQuery(undefined);
+  console.log("Users data:", users);
+  const moveTask = async (taskId: string, toStatus: string) => {
+    await updateTaskStatus({ taskId, status: toStatus });
+    refetch(); // Fetch lại danh sách task ngay sau khi update
   };
+
+  const handleTaskEdit = async (updatedTask: Partial<TaskType>) => {
+    if (editingTask) {
+      await updateTask({
+        taskID: editingTask.taskID,
+        ...updatedTask,
+      });
+      setEditingTask(null);
+      refetch();
+    }
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>An error occured while fetching tasks</div>;
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-        {taskStatus.map((status) => (
-          <TaskColumn
-            key={status}
-            status={status}
-            tasks={tasks?.filter((task) => task.status === status) || []}
-            moveTask={moveTask}
-            setIsModaNewTasklOpen={setIsModaNewTasklOpen}
-          />
-        ))}
-      </div>
-    </DndProvider>
+    <>
+      <DndProvider backend={HTML5Backend}>
+        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+          {taskStatus.map((status) => (
+            <TaskColumn
+              key={status}
+              status={status}
+              tasks={tasks?.filter((task) => task.status === status) || []}
+              moveTask={moveTask}
+              setIsModaNewTasklOpen={setIsModaNewTasklOpen}
+              onEditTask={setEditingTask}
+            />
+          ))}
+        </div>
+      </DndProvider>
+
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          users={users ? convertUsersToTaskUsers(users) : []}
+          onClose={() => setEditingTask(null)}
+          onSave={handleTaskEdit}
+        />
+      )}
+    </>
   );
 };
 type TaskColumnProps = {
@@ -43,12 +93,14 @@ type TaskColumnProps = {
   tasks: TaskType[];
   moveTask: (taskId: string, toStatus: string) => void;
   setIsModaNewTasklOpen: (isOpen: boolean) => void;
+  onEditTask: (task: TaskType) => void;
 };
 const TaskColumn = ({
   status,
   tasks,
   moveTask,
   setIsModaNewTasklOpen,
+  onEditTask,
 }: TaskColumnProps) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: "task",
@@ -102,7 +154,7 @@ const TaskColumn = ({
       {tasks
         .filter((task) => task.status === status)
         .map((task) => (
-          <Task key={task.taskID} task={task} />
+          <Task key={task.taskID} task={task} onEditTask={onEditTask} />
         ))}
     </div>
   );
@@ -110,8 +162,9 @@ const TaskColumn = ({
 
 type TaskProps = {
   task: TaskType;
+  onEditTask: (task: TaskType) => void;
 };
-const Task = ({ task }: TaskProps) => {
+const Task = ({ task, onEditTask }: TaskProps) => {
   const [{ isDragging }, drop] = useDrag(() => ({
     type: "task",
     item: { id: task.taskID },
@@ -153,17 +206,20 @@ const Task = ({ task }: TaskProps) => {
       }}
       className={`mb-4 rounded-md bg-white shadow dark:bg-dark-secondary ${
         isDragging ? "opacity-50" : "opacity-100"
-      }`}
+      } cursor-pointer`}
+      onClick={() => onEditTask(task)}
     >
-      {task.attachments && task.attachments.length > 0 && (
+      {task.attachments?.map((attachment) => (
         <Image
-          src={`/${task.attachments}`}
-          alt={task.attachments}
+          key={attachment.id}
+          src={`/${attachment.fileURL}`}
+          alt={attachment.fileName}
           width={400}
           height={200}
           className="h-auto w-full rounded-t-md"
         />
-      )}
+      ))}
+
       <div className="p-4 md:p-6">
         <div className="flex items-start justify-between">
           <div className="flex flex-1 flex-wrap items-center gap-2">
@@ -236,4 +292,5 @@ const Task = ({ task }: TaskProps) => {
     </div>
   );
 };
+
 export default BoardView;

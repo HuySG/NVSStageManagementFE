@@ -8,8 +8,8 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 //   startDate?: string;
 //   endDate?: string;
 // }
-export interface Project {
-  projectID: string;
+export interface Show {
+  showID: string;
   title: string;
   description: string;
   content: string;
@@ -47,6 +47,7 @@ export interface User {
   createDate: string;
   roleID: string;
   status: string;
+  TaskId: TaskUser[];
 }
 export interface Department {
   id: string;
@@ -72,9 +73,9 @@ export interface Task {
   startDate: string;
   endDate: string;
   status: string;
-  attachments: string;
+  attachments: Attachment[];
   assignedUsers: TaskUser[];
-  projectID: string;
+  showId: string;
 }
 interface ProjectTask {
   projectId: string;
@@ -89,19 +90,53 @@ interface ProjectTask {
   taskID?: string;
   tasks: Task[];
 }
-// export interface SearchResults {
-//   tasks?: Task[];
-//   projects?: Project[];
-//   users?: User[];
-// }
+// 📌 Định nghĩa loại tài sản
+export interface AssetCategory {
+  categoryID: string;
+  name: string;
+}
 
-// export interface Team {
-//   teamId: number;
-//   teamName: string;
-//   productOwnerUserId?: number;
-//   projectManagerUserId?: number;
-// }
-// console.log("Base URL:", process.env.NEXT_PUBLIC_API_BASE_URL);
+// 📌 Định nghĩa kiểu tài sản
+export interface AssetType {
+  id: string;
+  name: string;
+}
+
+// 📌 Định nghĩa tài sản
+export interface Asset {
+  assetID: string;
+  assetName: string;
+  model: string;
+  code: string;
+  description: string;
+  price: number;
+  buyDate: string;
+  status: string;
+  location: string;
+  createdBy: string;
+  image: string;
+  category: AssetCategory[];
+  assetType: AssetType[];
+}
+
+// 📌 Định nghĩa yêu cầu tài sản
+export interface AssetRequest {
+  requestId: string;
+  quantity: number;
+  description: string;
+  startTime: string;
+  endTime: string;
+  asset: Asset[];
+  task: Task[];
+  status: string;
+}
+export interface Attachment {
+  id: number;
+  fileURL: string;
+  fileName: string;
+  taskId: Task[];
+  uploadedById: number;
+}
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -116,7 +151,7 @@ export const api = createApi({
     // },
   }),
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "ProjectTasks"],
+  tagTypes: ["Shows", "Tasks", "Users", "ProjectTasks", "AssetRequests"],
   endpoints: (build) => ({
     // getAuthUser: build.query({
     //   queryFn: async (_, _queryApi, _extraoptions, fetchWithBQ) => {
@@ -136,20 +171,20 @@ export const api = createApi({
     //     }
     //   },
     // }),
-    getProjects: build.query<Project[], void>({
-      query: () => "projects",
-      providesTags: ["Projects"],
+    getProjects: build.query<Show[], void>({
+      query: () => "shows",
+      providesTags: ["Shows"],
     }),
-    createProject: build.mutation<Project, Partial<Project>>({
+    createProject: build.mutation<Show, Partial<Show>>({
       query: (project) => ({
-        url: "projects",
+        url: "shows",
         method: "POST",
         body: project,
       }),
-      invalidatesTags: ["Projects"],
+      invalidatesTags: ["Shows"],
     }),
-    getTasks: build.query<Task[], { projectId: String }>({
-      query: ({ projectId }) => `tasks/projectId?projectId=${projectId}`,
+    getTasks: build.query<Task[], { showId: String }>({
+      query: ({ showId }) => `tasks/showId?showId=${showId}`,
       providesTags: (result) =>
         result
           ? result.map(({ taskID }) => ({ type: "Tasks" as const, taskID }))
@@ -180,10 +215,34 @@ export const api = createApi({
         { type: "Tasks", id: taskId },
       ],
     }),
+    updateTask: build.mutation<Task, Partial<Task>>({
+      query: (taskData) => ({
+        url: "tasks",
+        method: "PUT",
+        body: taskData, // Gửi toàn bộ dữ liệu cập nhật
+      }),
+      invalidatesTags: (result, error, { taskID }) => [
+        { type: "Tasks", id: taskID },
+      ],
+    }),
+    loginUser: build.mutation<
+      { token: string },
+      { email: string; password: string }
+    >({
+      query: (credentials) => ({
+        url: "auth/login", // Điều chỉnh endpoint nếu cần
+        method: "POST",
+        body: credentials,
+      }),
+      invalidatesTags: ["Users"], // Cập nhật dữ liệu user sau khi đăng nhập
+    }),
+
     getUsers: build.query<User[], void>({
-      query: () => "user",
+      query: () => "user/get-all",
+      transformResponse: (response: { result: User[] }) => response.result, // Chỉ lấy result
       providesTags: ["Users"],
     }),
+
     // getTeams: build.query<Team[], void>({
     //   query: () => "teams",
     //   providesTags: ["Teams"],
@@ -195,6 +254,14 @@ export const api = createApi({
       query: () => "projects/project-task",
       providesTags: ["ProjectTasks"],
     }),
+    createAssetRequest: build.mutation<AssetRequest, Partial<AssetRequest>>({
+      query: (assetRequest) => ({
+        url: "asset-requests/batch",
+        method: "POST",
+        body: assetRequest,
+      }),
+      invalidatesTags: ["AssetRequests"], // Xóa cache để cập nhật dữ liệu mới
+    }),
   }),
 });
 
@@ -204,10 +271,13 @@ export const {
   useGetTasksQuery,
   useCreateTaskMutation,
   useUpdateTaskStatusMutation,
+  useUpdateTaskMutation,
+  useLoginUserMutation,
   // useSearchQuery,
   useGetUsersQuery,
   // useGetTeamsQuery,
   useGetTasksByUserQuery,
   useGetProjectTasksQuery,
   // useGetAuthUserQuery,
+  useCreateAssetRequestMutation,
 } = api;

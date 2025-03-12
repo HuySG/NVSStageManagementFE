@@ -15,7 +15,8 @@ type Props = { isOpen: boolean; onClose: () => void; id?: string | null };
 
 const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const [createTask, { isLoading }] = useCreateTaskMutation();
-  const { data: users, isLoading: isLoadingUsers } = useGetUsersQuery();
+  const { data: users = [] } = useGetUsersQuery();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Status>(Status.ToDo);
@@ -27,15 +28,15 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const params = useParams();
 
   // Lấy projectId từ URL, đảm bảo kiểu dữ liệu là string
-  const projectIdFromUrl = Array.isArray(params.projectId)
-    ? params.projectId[0]
-    : params.projectId;
+  const projectIdFromUrl = Array.isArray(params.showId)
+    ? params.showId[0]
+    : params.showId;
 
   // Nếu `id` không null, dùng `id`, ngược lại dùng `projectIdFromUrl`
-  const projectId = id !== null ? id : projectIdFromUrl || "";
+  const showId = id !== null ? id : projectIdFromUrl || "";
 
   const handleSubmit = async () => {
-    if (!title || !(id !== null || projectId)) return;
+    if (!title || !(id !== null || showId)) return;
 
     const formattedStartDate = formatISO(new Date(startDate), {
       representation: "date",
@@ -61,14 +62,15 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
       startDate: formattedStartDate,
       endDate: formattedDueDate,
       assignedUsers: assignedUsersFormatted,
-      attachments: "",
-      content: "",
-      projectId,
+      attachments: [],
+      showId,
     });
+    onClose();
   };
   const isFormValid = () => {
-    return !!title && !!(id !== null || projectId);
+    return !!title && !!(id !== null || showId);
   };
+  if (isLoading) return <div>Loading...</div>;
 
   const selectStyles =
     "mb-4 block w-full rounded border border-gray-300 px-3 py-2 dark:border-dark-tertiary dark:bg-dark-tertiary dark:text-white dark:focus:outline-none";
@@ -175,11 +177,15 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
           }}
         >
           <option value="">Select Assignee</option>
-          {users?.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.fullName} {/* 🟢 Hiển thị Full Name */}
-            </option>
-          ))}
+          {Array.isArray(users) ? (
+            users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.fullName}
+              </option>
+            ))
+          ) : (
+            <option disabled>Không có dữ liệu</option>
+          )}
         </select>
         <div>
           {assignedUsers.map((user) => (
@@ -203,10 +209,10 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
           <input
             type="text"
             className={inputStyles}
-            placeholder="ProjectId"
-            value={projectId}
+            placeholder="showID"
+            value={showId}
             onChange={(e) => {
-              console.log("Project ID nhập vào:", e.target.value);
+              console.log("Show ID nhập vào:", e.target.value);
             }}
           />
         )}

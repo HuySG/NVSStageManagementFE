@@ -9,7 +9,7 @@ type Props = {
 };
 
 const ListView = ({ id, setIsModaNewTasklOpen }: Props) => {
-  const { data: tasks, error, isLoading } = useGetTasksQuery({ projectId: id });
+  const { data: tasks, error, isLoading } = useGetTasksQuery({ showId: id });
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>An error occured while fetching tasks</div>;
   return (

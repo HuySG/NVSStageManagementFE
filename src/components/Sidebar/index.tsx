@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   User,
   Users,
+  Workflow,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -60,7 +61,7 @@ const Sidebar = () => {
           <Image src="/logo.png" alt="logo" width={40} height={40} />
           <div>
             <h3 className="text-md font-bold tracking-widest dark:text-gray-200">
-              EDROH TEAM
+              TEAM
             </h3>
             <div className="mt-1 flex items-start gap-2">
               <LockIcon className="mt-[0.1rem] h-3 w-3 text-gray-500 dark:text-gray-400" />
@@ -76,12 +77,13 @@ const Sidebar = () => {
           <SidebarLink icon={Settings} label="Settings" href="/settings" />
           <SidebarLink icon={User} label="Users" href="/users" />
           <SidebarLink icon={Users} label="Teams" href="/teams" />
+          <SidebarLink icon={Workflow} label="Request Assets" href="/request" />
         </nav>
         <button
           onClick={() => setShowProjects((prev) => !prev)}
           className="flex w-full items-center justify-between px-8 py-3 text-gray-500"
         >
-          <span className=""> Projects</span>
+          <span className="">Shows</span>
           {showProjects ? (
             <ChevronUp className="h-5 w-5" />
           ) : (
@@ -92,10 +94,10 @@ const Sidebar = () => {
         {showProjects &&
           projects?.map((project) => (
             <SidebarLink
-              key={project.projectID}
+              key={project.showID}
               icon={Briefcase}
               label={project.title}
-              href={`/Projects/${project.projectID}`}
+              href={`/Projects/${project.showID}`}
             />
           ))}
 
