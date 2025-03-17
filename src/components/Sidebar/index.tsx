@@ -83,7 +83,7 @@ const Sidebar = () => {
           onClick={() => setShowProjects((prev) => !prev)}
           className="flex w-full items-center justify-between px-8 py-3 text-gray-500"
         >
-          <span className="">Shows</span>
+          <span className="">Projects</span>
           {showProjects ? (
             <ChevronUp className="h-5 w-5" />
           ) : (
@@ -94,10 +94,10 @@ const Sidebar = () => {
         {showProjects &&
           projects?.map((project) => (
             <SidebarLink
-              key={project.showID}
+              key={project.projectID}
               icon={Briefcase}
               label={project.title}
-              href={`/Projects/${project.showID}`}
+              href={`/Projects/${project.projectID}`}
             />
           ))}
 

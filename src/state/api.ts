@@ -1,15 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-// import { fetchAuthSession, getCurrentUser } from "aws-amplify/auth";
 
-// export interface Project {
-//   id: number;
-//   name: string;
-//   description?: string;
-//   startDate?: string;
-//   endDate?: string;
-// }
-export interface Show {
-  showID: string;
+export interface Project {
+  projectID: string;
   title: string;
   description: string;
   content: string;
@@ -131,57 +123,37 @@ export interface AssetRequest {
   status: string;
 }
 export interface Attachment {
-  id: number;
+  id: String;
   fileURL: string;
   fileName: string;
-  taskId: Task[];
-  uploadedById: number;
+  taskId: string;
+  uploadedById: String;
 }
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
-
-    // prepareHeaders: async (headers) => {
-    //   const session = await fetchAuthSession();
-    //   const { accessToken } = session.tokens ?? {};
-    //   if (accessToken) {
-    //     headers.set("Authorization", `Bearer ${accessToken}`);
-    //   }
-    //   return headers;
-    // },
+    prepareHeaders: (headers) => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+      return headers;
+    },
   }),
   reducerPath: "api",
-  tagTypes: ["Shows", "Tasks", "Users", "ProjectTasks", "AssetRequests"],
+  tagTypes: ["Projects", "Tasks", "Users", "ProjectTasks", "AssetRequests"],
   endpoints: (build) => ({
-    // getAuthUser: build.query({
-    //   queryFn: async (_, _queryApi, _extraoptions, fetchWithBQ) => {
-    //     try {
-    //       const user = await getCurrentUser();
-    //       const session = await fetchAuthSession();
-    //       if (!session) throw new Error("No session found");
-    //       const { userSub } = session;
-    //       const { accessToken } = session.tokens ?? {};
-
-    //       const userDetailsResponse = await fetchWithBQ(`users/${userSub}`);
-    //       const userDetails = userDetailsResponse.data as User;
-
-    //       return { data: { user, userSub, userDetails } };
-    //     } catch (error: any) {
-    //       return { error: error.message || "Could not fetch user data" };
-    //     }
-    //   },
-    // }),
-    getProjects: build.query<Show[], void>({
-      query: () => "shows",
-      providesTags: ["Shows"],
+    getProjects: build.query<Project[], void>({
+      query: () => "project",
+      providesTags: ["Projects"],
     }),
-    createProject: build.mutation<Show, Partial<Show>>({
+    createProject: build.mutation<Project, Partial<Project>>({
       query: (project) => ({
-        url: "shows",
+        url: "project",
         method: "POST",
         body: project,
       }),
-      invalidatesTags: ["Shows"],
+      invalidatesTags: ["Projects"],
     }),
     getTasks: build.query<Task[], { showId: String }>({
       query: ({ showId }) => `tasks/showId?showId=${showId}`,
@@ -226,15 +198,23 @@ export const api = createApi({
       ],
     }),
     loginUser: build.mutation<
-      { token: string },
+      { result: { token: string; authenticated: boolean } }, // Sửa kiểu dữ liệu
       { email: string; password: string }
     >({
       query: (credentials) => ({
-        url: "auth/login", // Điều chỉnh endpoint nếu cần
+        url: "auth/token",
         method: "POST",
         body: credentials,
       }),
-      invalidatesTags: ["Users"], // Cập nhật dữ liệu user sau khi đăng nhập
+      invalidatesTags: ["Users"],
+    }),
+
+    getUserInfo: build.query<{ userId: string; email: string }, void>({
+      query: () => "user/my-info",
+      transformResponse: (response: {
+        code: number;
+        result: { userId: string; email: string };
+      }) => response.result,
     }),
 
     getUsers: build.query<User[], void>({
@@ -242,14 +222,6 @@ export const api = createApi({
       transformResponse: (response: { result: User[] }) => response.result, // Chỉ lấy result
       providesTags: ["Users"],
     }),
-
-    // getTeams: build.query<Team[], void>({
-    //   query: () => "teams",
-    //   providesTags: ["Teams"],
-    // }),
-    // search: build.query<SearchResults, string>({
-    //   query: (query) => `search?query=${query}`,
-    // }),
     getProjectTasks: build.query<ProjectTask[], void>({
       query: () => "projects/project-task",
       providesTags: ["ProjectTasks"],
@@ -273,11 +245,9 @@ export const {
   useUpdateTaskStatusMutation,
   useUpdateTaskMutation,
   useLoginUserMutation,
-  // useSearchQuery,
+  useGetUserInfoQuery,
   useGetUsersQuery,
-  // useGetTeamsQuery,
   useGetTasksByUserQuery,
   useGetProjectTasksQuery,
-  // useGetAuthUserQuery,
   useCreateAssetRequestMutation,
 } = api;

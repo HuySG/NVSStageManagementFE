@@ -1,5 +1,6 @@
 "use client";
 import {
+  Attachment,
   Priority,
   Status,
   TaskUser,
@@ -7,16 +8,16 @@ import {
   useGetUsersQuery,
 } from "@/state/api";
 import { formatISO } from "date-fns";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Modal from "../Modal";
 import { useParams } from "next/navigation";
+import { BlobServiceClient } from "@azure/storage-blob";
 
 type Props = { isOpen: boolean; onClose: () => void; id?: string | null };
 
 const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const [createTask, { isLoading }] = useCreateTaskMutation();
   const { data: users = [] } = useGetUsersQuery();
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Status>(Status.ToDo);
@@ -25,6 +26,11 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [assignedUsers, setAssignedUsers] = useState<TaskUser[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const params = useParams();
 
   // Lấy projectId từ URL, đảm bảo kiểu dữ liệu là string
@@ -35,38 +41,161 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   // Nếu `id` không null, dùng `id`, ngược lại dùng `projectIdFromUrl`
   const showId = id !== null ? id : projectIdFromUrl || "";
 
+  // Cấu hình Azure Storage - trong thực tế nên đưa vào file config riêng
+  const NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL =
+    process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL || "";
+  const AZURE_STORAGE_CONTAINER_NAME =
+    process.env.NEXT_PUBLIC_AZURE_STORAGE_CONTAINER_NAME || "attachments";
+  // Tạo ID ngẫu nhiên cho attachment
+  const generateUniqueId = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
+    }
+  };
+
+  const uploadFilesToAzure = async () => {
+    if (files.length === 0) return [];
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const uploadedAttachments: Attachment[] = [];
+
+    try {
+      // Kiểm tra connection string
+      if (!NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL) {
+        throw new Error("Azure Storage connection string is not configured");
+      }
+
+      // Tạo BlobServiceClient
+      const blobServiceClient = new BlobServiceClient(
+        NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL,
+      );
+
+      // Lấy container client
+      const containerClient = blobServiceClient.getContainerClient(
+        AZURE_STORAGE_CONTAINER_NAME,
+      );
+
+      // Đảm bảo container tồn tại
+      await containerClient.createIfNotExists();
+
+      // Upload từng file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const uniqueId = generateUniqueId();
+        const fileExtension = file.name.split(".").pop() || "";
+        const blobName = `${uniqueId}-${file.name}`;
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+        // Upload file
+        await blockBlobClient.uploadData(await file.arrayBuffer(), {
+          onProgress: (progress) => {
+            // Cập nhật tiến trình upload
+            const totalProgress = Math.round(
+              ((i + progress.loadedBytes / file.size) / files.length) * 100,
+            );
+            setUploadProgress(totalProgress);
+          },
+          blobHTTPHeaders: {
+            blobContentType: file.type,
+          },
+        });
+
+        // Thêm thông tin file đã upload vào danh sách attachments theo cấu trúc JSON
+        uploadedAttachments.push({
+          id: uniqueId,
+          fileName: file.name,
+          fileURL: blockBlobClient.url,
+          taskId: "", // Sẽ được cập nhật sau khi task được tạo
+          uploadedById: "",
+        });
+      }
+
+      setAttachments((prevAttachments) => [
+        ...prevAttachments,
+        ...uploadedAttachments,
+      ]);
+      setFiles([]);
+      setUploadProgress(100);
+
+      return uploadedAttachments;
+    } catch (error) {
+      console.error("Error uploading files to Azure:", error);
+      alert(`Lỗi khi upload file: ${(error as Error).message}`);
+      return [];
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prevAttachments) =>
+      prevAttachments.filter((_, i) => i !== index),
+    );
+  };
+
   const handleSubmit = async () => {
     if (!title || !(id !== null || showId)) return;
 
-    const formattedStartDate = formatISO(new Date(startDate), {
-      representation: "date",
-    });
-    const formattedDueDate = formatISO(new Date(endDate), {
-      representation: "date",
-    });
-    const assignedUsersFormatted = assignedUsers.map((user) => ({
-      userID: user.userID,
-      fullName: user.fullName,
-      dayOfBirth: user.dayOfBirth,
-      email: user.email,
-      pictureProfile: user.pictureProfile,
-    }));
+    try {
+      // Upload files trước khi tạo task nếu có file mới
+      let taskAttachments: Attachment[] = [...attachments];
+      if (files.length > 0) {
+        const uploadedFiles = await uploadFilesToAzure();
+        taskAttachments = [...taskAttachments, ...uploadedFiles];
+      }
 
-    await createTask({
-      taskID: "", // BE sẽ tự sinh ID
-      title,
-      description,
-      status,
-      priority,
-      tag,
-      startDate: formattedStartDate,
-      endDate: formattedDueDate,
-      assignedUsers: assignedUsersFormatted,
-      attachments: [],
-      showId,
-    });
-    onClose();
+      const formattedStartDate = startDate
+        ? formatISO(new Date(startDate), {
+            representation: "date",
+          })
+        : "";
+
+      const formattedDueDate = endDate
+        ? formatISO(new Date(endDate), {
+            representation: "date",
+          })
+        : "";
+
+      const assignedUsersFormatted = assignedUsers.map((user) => ({
+        userID: user.userID,
+        fullName: user.fullName,
+        dayOfBirth: user.dayOfBirth,
+        email: user.email,
+        pictureProfile: user.pictureProfile,
+      }));
+
+      await createTask({
+        taskID: "", // BE sẽ tự sinh ID
+        title,
+        description,
+        status,
+        priority,
+        tag,
+        startDate: formattedStartDate,
+        endDate: formattedDueDate,
+        assignedUsers: assignedUsersFormatted,
+        attachments: taskAttachments,
+        showId,
+      });
+
+      onClose();
+    } catch (error) {
+      console.error("Error creating task:", error);
+      alert("Lỗi khi tạo task. Vui lòng thử lại.");
+    }
   };
+
   const isFormValid = () => {
     return !!title && !!(id !== null || showId);
   };
@@ -150,6 +279,105 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
+        </div>
+
+        {/* File upload section */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Attachments</span>
+            <input
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+              ref={fileInputRef}
+            />
+            <button
+              type="button"
+              className="rounded bg-blue-100 px-3 py-1 text-sm text-blue-600 dark:bg-blue-900 dark:text-blue-200"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Add Files
+            </button>
+          </div>
+          {/* List of files to be uploaded */}
+          {files.length > 0 && (
+            <div className="mt-2 space-y-2">
+              <div className="text-sm font-medium">Files to upload:</div>
+              {files.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded bg-gray-50 p-2 dark:bg-dark-tertiary"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{file.name}</span>
+                    <span className="text-xs text-gray-500">
+                      ({(file.size / 1024).toFixed(2)} KB)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-red-500"
+                    onClick={() => removeFile(index)}
+                  >
+                    ❌
+                  </button>
+                </div>
+              ))}
+              {!isUploading && files.length > 0 && (
+                <button
+                  type="button"
+                  className="mt-2 rounded bg-green-100 px-3 py-1 text-sm text-green-600 dark:bg-green-900 dark:text-green-200"
+                  onClick={uploadFilesToAzure}
+                >
+                  Upload Files
+                </button>
+              )}
+            </div>
+          )}
+          {/* Upload progress */}
+          {isUploading && (
+            <div className="mt-2">
+              <div className="text-sm">Uploading... {uploadProgress}%</div>
+              <div className="mt-1 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="h-2 rounded-full bg-blue-600"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+          {/* List of uploaded attachments */}
+          {attachments.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="text-sm font-medium">Uploaded attachments:</div>
+              {attachments.map((attachment, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded bg-gray-50 p-2 dark:bg-dark-tertiary"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{attachment.fileName}</span>
+                    <a
+                      href={attachment.fileURL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-500"
+                    >
+                      (View)
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-red-500"
+                    onClick={() => removeAttachment(index)}
+                  >
+                    ❌
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <select
