@@ -1,6 +1,6 @@
 import Header from "@/components/Header";
 import TaskCard from "@/components/TaskCard";
-import { Task, useGetTasksQuery } from "@/state/api";
+import { Task, useGetTaskMilestoneQuery } from "@/state/api";
 import React from "react";
 
 type Props = {
@@ -9,7 +9,11 @@ type Props = {
 };
 
 const ListView = ({ id, setIsModaNewTasklOpen }: Props) => {
-  const { data: tasks, error, isLoading } = useGetTasksQuery({ showId: id });
+  const {
+    data: tasks,
+    error,
+    isLoading,
+  } = useGetTaskMilestoneQuery({ projectID: id });
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>An error occured while fetching tasks</div>;
   return (

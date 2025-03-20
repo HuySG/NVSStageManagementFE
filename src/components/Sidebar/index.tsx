@@ -1,7 +1,7 @@
 "use client";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsSidebarCollapsed } from "@/state";
-import { useGetProjectsQuery } from "@/state/api";
+import { useGetProjectsQuery, useGetUserInfoQuery } from "@/state/api";
 import {
   AlertCircle,
   AlertOctagon,
@@ -25,6 +25,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState } from "react";
+import UserProfile from "../UserProfile";
 
 const Sidebar = () => {
   const [showProjects, setShowProjects] = useState(true);
@@ -34,6 +35,9 @@ const Sidebar = () => {
   const isSidebarCollapsed = useAppSelector(
     (state) => state.global.isSidebarCollapsed,
   );
+  const { data: user, isLoading, error } = useGetUserInfoQuery();
+  if (isLoading) return <div>Loading user info...</div>;
+  if (error || !user) return <div>Failed to load user info</div>;
 
   const sidebarClassnames = `fixed flex flex-col h-[100%] justify-between shadow-xl transition-all duration-300 h-full z-40 dark:bg-black overflow-y-auto bg-white  ${
     isSidebarCollapsed ? "w-0 hidden" : "w-64"
@@ -61,7 +65,7 @@ const Sidebar = () => {
           <Image src="/logo.png" alt="logo" width={40} height={40} />
           <div>
             <h3 className="text-md font-bold tracking-widest dark:text-gray-200">
-              TEAM
+              {user.department.name || "No Department"}
             </h3>
             <div className="mt-1 flex items-start gap-2">
               <LockIcon className="mt-[0.1rem] h-3 w-3 text-gray-500 dark:text-gray-400" />
@@ -138,6 +142,7 @@ const Sidebar = () => {
             />
           </>
         )}
+        <UserProfile />
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import {
   TaskUser,
-  useGetTasksQuery,
+  useGetTaskMilestoneQuery,
   useGetUsersQuery,
   User,
   useUpdateTaskMutation,
@@ -36,7 +36,12 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
     isLoading,
     error,
     refetch,
-  } = useGetTasksQuery({ showId: id }, { refetchOnMountOrArgChange: true });
+  } = useGetTaskMilestoneQuery(
+    { projectID: id },
+    { refetchOnMountOrArgChange: true },
+  );
+  console.log("id:", id);
+
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
   const [updateTask] = useUpdateTaskMutation();
   const { data: users } = useGetUsersQuery(undefined);
@@ -45,6 +50,7 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
     await updateTaskStatus({ taskId, status: toStatus });
     refetch(); // Fetch lại danh sách task ngay sau khi update
   };
+  console.log("Tasks data:", tasks);
 
   const handleTaskEdit = async (updatedTask: Partial<TaskType>) => {
     if (editingTask) {
@@ -209,16 +215,27 @@ const Task = ({ task, onEditTask }: TaskProps) => {
       } cursor-pointer`}
       onClick={() => onEditTask(task)}
     >
-      {task.attachments?.map((attachment) => (
-        <Image
-          key={attachment.id}
-          src={`/${attachment.fileURL}`}
-          alt={attachment.fileName}
-          width={400}
-          height={200}
-          className="h-auto w-full rounded-t-md"
-        />
-      ))}
+      {task.attachments && task.attachments.length > 0 && (
+        <div className="relative h-[200px] w-full overflow-hidden rounded-t-md">
+          <Image
+            key={String(task.attachments[0].attachmentId)}
+            src={`/${task.attachments[0].fileUrl}`}
+            alt={task.attachments[0].fileName}
+            fill
+            className="object-cover"
+            onError={(e) => {
+              // Fallback khi ảnh không load được
+              const target = e.target as HTMLImageElement;
+              target.src = "/placeholder-image.png";
+            }}
+          />
+          {task.attachments.length > 1 && (
+            <div className="absolute bottom-2 right-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
+              +{task.attachments.length - 1}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="p-4 md:p-6">
         <div className="flex items-start justify-between">
@@ -258,35 +275,33 @@ const Task = ({ task, onEditTask }: TaskProps) => {
         <div className="mt-4 border-t border-gray-200 dark:border-stroke-dark" />
         <div className="mt-3 flex items-center justify-between">
           <div className="flex -space-x-[6px] overflow-hidden">
-            {task.assignedUsers &&
-              task.assignedUsers?.map((taskUser) => (
+            {task.assignedUsers && task.assignedUsers.length > 0 ? (
+              task.assignedUsers.map((taskUser) => (
                 <Image
-                  key={taskUser.userID} // Đặt key bằng userId
-                  src={`/${taskUser.pictureProfile}`} // Lấy avatar đúng
-                  alt={taskUser.fullName! || "User"} // Tránh lỗi nếu không có username
+                  key={taskUser.userID}
+                  src={
+                    taskUser.pictureProfile
+                      ? `/${taskUser.pictureProfile}`
+                      : "/default-avatar.png"
+                  }
+                  alt={taskUser.fullName || "User"}
                   width={30}
                   height={30}
                   className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
                 />
-              ))}
-
-            {/* {task.author && (
-              <Image
-                key={task.author.userId}
-                src={`/${task.author.profilePictureUrl!}`}
-                alt={task.author.username}
-                width={30}
-                height={30}
-                className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
-              />
-            )} */}
+              ))
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-xs font-medium dark:border-dark-secondary dark:bg-dark-tertiary">
+                NA
+              </div>
+            )}
           </div>
-          {/* <div className="flex items-center text-gray-500 dark:text-neutral-500">
+          <div className="flex items-center text-gray-500 dark:text-neutral-500">
             <MessageSquareMore size={20} />
             <span className="ml-1 text-sm dark:text-neutral-400">
-              {numberOfComments}
+              {task.comments ? task.comments.length : 0}
             </span>
-          </div> */}
+          </div>
         </div>
       </div>
     </div>

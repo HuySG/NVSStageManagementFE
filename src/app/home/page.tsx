@@ -5,7 +5,7 @@ import {
   Project,
   Task,
   useGetProjectsQuery,
-  useGetTasksQuery,
+  useGetTaskMilestoneQuery,
 } from "@/state/api";
 import React from "react";
 import { useAppSelector } from "../redux";
@@ -40,7 +40,7 @@ const HomePage = () => {
     data: tasks,
     isLoading: tasksLoading,
     isError: tasksError,
-  } = useGetTasksQuery({ projectId: String("1") });
+  } = useGetTaskMilestoneQuery({ projectID: String("1") });
   const { data: projects, isLoading: isProjectsLoading } =
     useGetProjectsQuery();
 

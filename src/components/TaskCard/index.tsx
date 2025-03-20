@@ -24,7 +24,7 @@ function TaskCard({ task }: Props) {
           <div className="flex flex-wrap">
             {task.attachments?.map((attachment) => (
               <Image
-                key={attachment.id}
+                key={String(attachment.id)}
                 src={`/${attachment.fileURL}`}
                 alt={attachment.fileName}
                 width={400}

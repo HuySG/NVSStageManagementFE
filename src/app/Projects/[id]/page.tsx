@@ -1,42 +1,14 @@
 "use client";
-import React, { useState } from "react";
-import ProjectHeader from "../ProjectHeader";
-import BoardView from "../BoardView";
-import List from "../ListView";
-import Timeline from "../TimelineView";
-import TableView from "../TableView";
-import ModalNewTask from "@/components/ModalNewTask";
-type Props = {
-  params: { id: string };
-};
 
-const Project = ({ params }: Props) => {
-  const { id } = params;
-  const [activeTab, setActiveTab] = useState("Board");
-  const [isModalNewTaskOpen, setIsModalNewTaskOpen] = useState(false);
+import MilestoneTimeline from "@/components/MilestoneTimeline";
+import { useParams } from "next/navigation";
+
+export default function ProjectPage() {
+  const { id } = useParams(); // Lấy projectId từ URL
+
   return (
-    <div>
-      {/* MODAL NEW TASKS */}
-      <ModalNewTask
-        isOpen={isModalNewTaskOpen}
-        onClose={() => setIsModalNewTaskOpen(false)}
-        id={id}
-      />
-      <ProjectHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-      {activeTab === "Board" && (
-        <BoardView id={id} setIsModaNewTasklOpen={setIsModalNewTaskOpen} />
-      )}
-      {activeTab === "List" && (
-        <List id={id} setIsModaNewTasklOpen={setIsModalNewTaskOpen} />
-      )}
-      {activeTab === "Timeline" && (
-        <Timeline id={id} setIsModalNewTaskOpen={setIsModalNewTaskOpen} />
-      )}
-      {activeTab === "Table" && (
-        <TableView id={id} setIsModalNewTaskOpen={setIsModalNewTaskOpen} />
-      )}
+    <div className="p-6">
+      <MilestoneTimeline projectID={id as string} />
     </div>
   );
-};
-
-export default Project;
+}

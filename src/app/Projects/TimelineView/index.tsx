@@ -1,15 +1,20 @@
 import { useAppSelector } from "@/app/redux";
-import { useGetTasksQuery } from "@/state/api";
+
 import React, { useMemo, useState } from "react";
 import { DisplayOption, Gantt, ViewMode } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
+import { useGetTaskMilestoneQuery } from "@/state/api";
 
 type Props = { id: string; setIsModalNewTaskOpen: (isOpen: boolean) => void };
 type TaskTypeItems = "task" | "milestone" | "project";
 
 function Timeline({ id, setIsModalNewTaskOpen }: Props) {
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
-  const { data: tasks, error, isLoading } = useGetTasksQuery({ showId: id });
+  const {
+    data: tasks,
+    error,
+    isLoading,
+  } = useGetTaskMilestoneQuery({ projectID: id });
   const [displayOptions, setDisplayOptions] = useState<DisplayOption>({
     viewMode: ViewMode.Month,
     locale: "en-US",

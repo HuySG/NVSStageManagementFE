@@ -1,9 +1,9 @@
 import { useAppSelector } from "@/app/redux";
 import Header from "@/components/Header";
-import { useGetTasksQuery } from "@/state/api";
 import React from "react";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { dataGridClassNames, dataGridSxStyles } from "@/app/lib/utils";
+import { useGetTaskMilestoneQuery } from "@/state/api";
 
 type Props = { id: string; setIsModalNewTaskOpen: (isOpen: boolean) => void };
 const columns: GridColDef[] = [
@@ -68,7 +68,11 @@ const columns: GridColDef[] = [
 ];
 function TableView({ id, setIsModalNewTaskOpen }: Props) {
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
-  const { data: tasks, error, isLoading } = useGetTasksQuery({ showId: id });
+  const {
+    data: tasks,
+    error,
+    isLoading,
+  } = useGetTaskMilestoneQuery({ projectID: id });
 
   if (isLoading) return <div>Loading...</div>;
   if (error || !tasks) return <div>An error occurred while fetching tasks</div>;

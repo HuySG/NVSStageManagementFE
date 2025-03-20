@@ -7,7 +7,7 @@ import {
   useCreateTaskMutation,
   useGetUsersQuery,
 } from "@/state/api";
-import { formatISO } from "date-fns";
+import { format, formatISO } from "date-fns";
 import React, { useRef, useState } from "react";
 import Modal from "../Modal";
 import { useParams } from "next/navigation";
@@ -34,12 +34,12 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const params = useParams();
 
   // Lấy projectId từ URL, đảm bảo kiểu dữ liệu là string
-  const projectIdFromUrl = Array.isArray(params.showId)
-    ? params.showId[0]
-    : params.showId;
+  const projectIdFromUrl = Array.isArray(params.milestoneId)
+    ? params.milestoneId[0]
+    : params.milestoneId;
 
   // Nếu `id` không null, dùng `id`, ngược lại dùng `projectIdFromUrl`
-  const showId = id !== null ? id : projectIdFromUrl || "";
+  const milestoneId = id !== null ? id : projectIdFromUrl || "";
 
   // Cấu hình Azure Storage - trong thực tế nên đưa vào file config riêng
   const NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL =
@@ -109,9 +109,9 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
 
         // Thêm thông tin file đã upload vào danh sách attachments theo cấu trúc JSON
         uploadedAttachments.push({
-          id: uniqueId,
+          attachmentId: uniqueId,
           fileName: file.name,
-          fileURL: blockBlobClient.url,
+          fileUrl: blockBlobClient.url,
           taskId: "", // Sẽ được cập nhật sau khi task được tạo
           uploadedById: "",
         });
@@ -145,7 +145,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   };
 
   const handleSubmit = async () => {
-    if (!title || !(id !== null || showId)) return;
+    if (!title || !(id !== null || milestoneId)) return;
 
     try {
       // Upload files trước khi tạo task nếu có file mới
@@ -154,18 +154,14 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
         const uploadedFiles = await uploadFilesToAzure();
         taskAttachments = [...taskAttachments, ...uploadedFiles];
       }
-
-      const formattedStartDate = startDate
-        ? formatISO(new Date(startDate), {
-            representation: "date",
-          })
-        : "";
-
-      const formattedDueDate = endDate
-        ? formatISO(new Date(endDate), {
-            representation: "date",
-          })
-        : "";
+      const formattedStartDate = format(
+        new Date(startDate),
+        "yyyy-MM-dd'T'HH:mm:ss",
+      );
+      const formattedDueDate = format(
+        new Date(endDate),
+        "yyyy-MM-dd'T'HH:mm:ss",
+      );
 
       const assignedUsersFormatted = assignedUsers.map((user) => ({
         userID: user.userID,
@@ -186,7 +182,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
         endDate: formattedDueDate,
         assignedUsers: assignedUsersFormatted,
         attachments: taskAttachments,
-        showId,
+        milestoneId: milestoneId,
       });
 
       onClose();
@@ -197,7 +193,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   };
 
   const isFormValid = () => {
-    return !!title && !!(id !== null || showId);
+    return !!title && !!(id !== null || milestoneId);
   };
   if (isLoading) return <div>Loading...</div>;
 
@@ -359,7 +355,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{attachment.fileName}</span>
                     <a
-                      href={attachment.fileURL}
+                      href={attachment.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-blue-500"
@@ -438,7 +434,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
             type="text"
             className={inputStyles}
             placeholder="showID"
-            value={showId}
+            value={milestoneId}
             onChange={(e) => {
               console.log("Show ID nhập vào:", e.target.value);
             }}

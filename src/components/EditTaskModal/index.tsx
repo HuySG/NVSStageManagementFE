@@ -1,4 +1,4 @@
-import { TaskUser } from "@/state/api";
+import { Status, TaskUser, Watcher } from "@/state/api";
 import { Task as TaskType } from "@/state/api";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -28,11 +28,17 @@ const EditTaskModal = ({
     task.endDate ? format(new Date(task.endDate), "yyyy-MM-dd") : "",
   );
   const [tags, setTags] = useState(task.tag || "");
+  const [status, setStatus] = useState(task.status || "");
   const [assignedUsers, setAssignedUsers] = useState<TaskUser[]>(
     task.assignedUsers || [],
   );
   const [newComment, setNewComment] = useState("");
+  const [watcher, setWatcher] = useState<Watcher[]>(task.watcher || []);
+  const [milestoneId, setMilestoneId] = useState(task.milestoneId || "");
+  const [attachments, setAttachments] = useState(task.attachments || []);
+  const [newAttachment, setNewAttachment] = useState<File | null>(null);
 
+  // Hàm xử lý người dùng được gán việc
   const handleAddUser = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUserId = e.target.value;
     const selectedUser = users.find((user) => user.userID === selectedUserId);
@@ -51,6 +57,29 @@ const EditTaskModal = ({
     );
   };
 
+  // Hàm xử lý người theo dõi
+  const handleAddWatcher = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedUserId = e.target.value;
+    const selectedUser = users.find((user) => user.userID === selectedUserId);
+
+    if (selectedUser && !watcher.some((w) => w.userID === selectedUserId)) {
+      // Chuyển đổi từ TaskUser sang Watcher
+      const newWatcher: Watcher = {
+        userID: selectedUser.userID,
+        fullName: selectedUser.fullName || "", // Xử lý trường hợp undefined
+        dayOfBirth: selectedUser.dayOfBirth || "",
+        email: selectedUser.email || "",
+        pictureProfile: selectedUser.pictureProfile || "",
+      };
+
+      setWatcher([...watcher, newWatcher]);
+    }
+  };
+
+  const handleRemoveWatcher = (userIdToRemove: string) => {
+    setWatcher(watcher.filter((user) => user.userID !== userIdToRemove));
+  };
+
   const handleSave = () => {
     onSave({
       title,
@@ -59,9 +88,16 @@ const EditTaskModal = ({
       startDate: startDate ? new Date(startDate).toISOString() : undefined,
       endDate: endDate ? new Date(endDate).toISOString() : undefined,
       tag: tags,
+      status,
       assignedUsers: assignedUsers,
+      watcher,
+      milestoneId,
+      attachments,
+      // Thêm các trường khác nếu cần
+      updateDate: new Date().toISOString(), // Tự động cập nhật ngày chỉnh sửa
     });
   };
+
   const isChanged =
     title !== task.title ||
     description !== task.description ||
@@ -71,18 +107,25 @@ const EditTaskModal = ({
     endDate !==
       (task.endDate ? format(new Date(task.endDate), "yyyy-MM-dd") : "") ||
     tags !== task.tag ||
+    status !== task.status ||
+    milestoneId !== task.milestoneId ||
+    attachments.length !== (task.attachments?.length || 0) ||
     assignedUsers.length !== (task.assignedUsers?.length || 0) ||
+    watcher.length !== (task.watcher?.length || 0) ||
     assignedUsers.some(
       (user, index) => user.userID !== task.assignedUsers?.[index]?.userID,
+    ) ||
+    watcher.some(
+      (user, index) => user.userID !== task.watcher?.[index]?.userID,
     );
 
   const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-3xl rounded-lg bg-white p-6 dark:bg-dark-secondary">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold dark:text-white">Edit Task</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -117,6 +160,22 @@ const EditTaskModal = ({
               className="h-24 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
             />
           </div>
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium dark:text-white">
+              Status
+            </label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            >
+              <option value={Status.ToDo}>To Do</option>
+              <option value={Status.WorkInProgress}>Work In Progress</option>
+              <option value={Status.UnderReview}>Under Review</option>
+              <option value={Status.Completed}>Completed</option>
+            </select>
+          </div>
 
           {/* Assigner */}
           <div>
@@ -144,6 +203,41 @@ const EditTaskModal = ({
                   <span>{user.fullName}</span>
                   <button
                     onClick={() => handleRemoveUser(user.userID)}
+                    className="text-red-500"
+                  >
+                    ❌
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Watchers */}
+          <div>
+            <label className="block text-sm font-medium dark:text-white">
+              Watchers
+            </label>
+            <select
+              onChange={handleAddWatcher}
+              className="mt-2 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            >
+              <option value="">Add Watcher</option>
+              {users.map((user) => (
+                <option key={user.userID} value={user.userID}>
+                  {user.fullName}
+                </option>
+              ))}
+            </select>
+
+            <div className="mt-2 space-y-2">
+              {watcher.map((user) => (
+                <div
+                  key={user.userID}
+                  className="flex items-center justify-between rounded-lg bg-gray-200 px-3 py-1"
+                >
+                  <span>{user.fullName}</span>
+                  <button
+                    onClick={() => handleRemoveWatcher(user.userID)}
                     className="text-red-500"
                   >
                     ❌
@@ -221,6 +315,7 @@ const EditTaskModal = ({
               </button>
             </div>
           </div>
+
           {/* Action Buttons */}
           <div className="mt-4 flex justify-end gap-2">
             <button

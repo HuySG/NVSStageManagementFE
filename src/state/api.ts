@@ -4,13 +4,21 @@ export interface Project {
   projectID: string;
   title: string;
   description: string;
-  content: string;
   startTime: string; // ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
   endTime: string;
   department: string;
   createdBy: string;
   tasks: Task[];
   taskID: string;
+}
+
+export interface Milestone {
+  milestoneID: string;
+  title: string;
+  description: string;
+  startDate: string; // ISO 8601 format (e.g., "2025-03-18T20:24:38.797Z")
+  endDate: string;
+  projectID: String; // Liên kết với projectID từ Project
 }
 
 export enum Priority {
@@ -47,6 +55,19 @@ export interface Department {
   description: string;
 }
 
+export interface Comment {
+  id: string;
+  taskId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    pictureProfile: string;
+  };
+}
+
 export interface TaskUser {
   userID: string; // Phải khớp với API trả về
   fullName?: string;
@@ -54,21 +75,60 @@ export interface TaskUser {
   email?: string;
   pictureProfile?: string;
 }
-
 export interface Task {
   taskID: string;
   title: string;
   description: string;
   priority: string;
   tag: string;
-  content: string;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   status: string;
-  attachments: Attachment[];
-  assignedUsers: TaskUser[];
-  showId: string;
+  assigneeID: string; // Thêm vào từ JSON mẫu
+  assigneeInfo?: {
+    // Thêm vào từ JSON mẫu
+    id: string;
+    fullName: string;
+    dayOfBirth: string;
+    email: string;
+    password: string;
+    department: {
+      id: string;
+      name: string;
+      description: string;
+    };
+    pictureProfile: string;
+    createDate: string;
+    role: {
+      id: number;
+      roleName: string;
+    };
+    status: string;
+    taskUsers: {
+      taskID: string;
+      userID: string[];
+    }[];
+  };
+  createBy: string; // Thêm từ JSON mẫu
+  createDate: string; // Thêm từ JSON mẫu
+  updateBy: string; // Chỉnh sửa từ UpdateBy thành updateBy cho khớp với JSON
+  updateDate: string;
+  attachments?: Attachment[];
+  assignedUsers?: TaskUser[]; // Được sử dụng trong BoardView
+  watcher?: Watcher[]; // Chỉnh sửa từ array thành optional
+  projectID?: string; // Chỉnh sửa kiểu String thành string và optional
+  milestoneId: string; // Giữ nguyên như trong JSON mẫu
+  comments?: Comment[]; // Thêm mới để hỗ trợ tính năng comments
 }
+
+export interface Watcher {
+  userID: string;
+  fullName: string;
+  dayOfBirth: string;
+  email: string;
+  pictureProfile: string;
+}
+
 interface ProjectTask {
   projectId: string;
   title: string;
@@ -92,6 +152,7 @@ export interface AssetCategory {
 export interface AssetType {
   id: string;
   name: string;
+  categories: AssetCategory[];
 }
 
 // 📌 Định nghĩa tài sản
@@ -107,6 +168,7 @@ export interface Asset {
   location: string;
   createdBy: string;
   image: string;
+  categoryId: string;
   category: AssetCategory[];
   assetType: AssetType[];
 }
@@ -122,12 +184,13 @@ export interface AssetRequest {
   task: Task[];
   status: string;
 }
+
 export interface Attachment {
-  id: String;
-  fileURL: string;
+  attachmentId: string; // Chỉnh từ id: String thành attachmentId: string
+  fileUrl: string; // Chỉnh từ fileURL thành fileUrl để khớp với JSON
   fileName: string;
   taskId: string;
-  uploadedById: String;
+  uploadedById: string; // Chỉnh từ String thành string
 }
 export const api = createApi({
   baseQuery: fetchBaseQuery({
@@ -141,25 +204,35 @@ export const api = createApi({
     },
   }),
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "ProjectTasks", "AssetRequests"],
+  tagTypes: [
+    "Projects",
+    "Tasks",
+    "Users",
+    "ProjectTasks",
+    "AssetRequests",
+    "Milestones",
+    "Comments",
+    "AssetTypes",
+    "Assets",
+  ],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
       query: () => "project",
       providesTags: ["Projects"],
     }),
-    createProject: build.mutation<Project, Partial<Project>>({
-      query: (project) => ({
-        url: "project",
+    createMilestone: build.mutation<Milestone, Partial<Milestone>>({
+      query: (milestone) => ({
+        url: "milestones",
         method: "POST",
-        body: project,
+        body: milestone,
       }),
-      invalidatesTags: ["Projects"],
+      invalidatesTags: ["Milestones"],
     }),
-    getTasks: build.query<Task[], { showId: String }>({
-      query: ({ showId }) => `tasks/showId?showId=${showId}`,
+    getTaskMilestone: build.query<Task[], { projectID: string }>({
+      query: ({ projectID }) => `tasks/milestoneId?milestoneId=${projectID}`,
       providesTags: (result) =>
         result
-          ? result.map(({ taskID }) => ({ type: "Tasks" as const, taskID }))
+          ? result.map(({ taskID }) => ({ type: "Tasks" as const, id: taskID }))
           : [{ type: "Tasks" as const }],
     }),
     getTasksByUser: build.query<Task[], number>({
@@ -209,12 +282,10 @@ export const api = createApi({
       invalidatesTags: ["Users"],
     }),
 
-    getUserInfo: build.query<{ userId: string; email: string }, void>({
+    getUserInfo: build.query<User, void>({
       query: () => "user/my-info",
-      transformResponse: (response: {
-        code: number;
-        result: { userId: string; email: string };
-      }) => response.result,
+      transformResponse: (response: { code: number; result: User }) =>
+        response.result,
     }),
 
     getUsers: build.query<User[], void>({
@@ -226,21 +297,69 @@ export const api = createApi({
       query: () => "projects/project-task",
       providesTags: ["ProjectTasks"],
     }),
+
+    // 📌 Thêm API để tạo yêu cầu tài sản
+
     createAssetRequest: build.mutation<AssetRequest, Partial<AssetRequest>>({
       query: (assetRequest) => ({
-        url: "asset-requests/batch",
+        url: "request-asset",
         method: "POST",
-        body: assetRequest,
+        body: [assetRequest],
       }),
       invalidatesTags: ["AssetRequests"], // Xóa cache để cập nhật dữ liệu mới
+    }),
+    getAssets: build.query<Asset[], { categoryId: string }>({
+      query: ({ categoryId }) => ({
+        url: `asset?categoryId=${categoryId}`,
+        method: "GET",
+      }),
+      providesTags: (result, error, { categoryId }) =>
+        result ? [{ type: "Assets", id: categoryId }] : [{ type: "Assets" }],
+    }),
+
+    getAssetTypes: build.query<AssetType[], void>({
+      query: () => ({
+        url: "asset-types",
+        method: "GET",
+      }),
+      providesTags: ["AssetTypes"],
+    }),
+    // 📌 Thêm API để lấy danh sách milestone theo project
+    getMilestonesByProject: build.query<Milestone[], { projectID: string }>({
+      query: ({ projectID }) => `milestones/project/${projectID}`,
+      providesTags: (result, error, { projectID }) =>
+        result
+          ? [{ type: "Milestones", id: projectID }]
+          : [{ type: "Milestones" }],
+    }),
+    getTaskComments: build.query<Comment[], { taskID: string }>({
+      query: ({ taskID }) => `/api/v1/comment/task?taskID=${taskID}`,
+      providesTags: (result) =>
+        result
+          ? result.map(({ id }) => ({
+              type: "Comments" as const,
+              id: id,
+            }))
+          : [{ type: "Comments" as const }],
+    }),
+    postTaskComment: build.mutation<Comment, Partial<Comment>>({
+      query: (commentData) => ({
+        url: "/api/v1/comment",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: commentData,
+      }),
+      invalidatesTags: [{ type: "Comments" }],
     }),
   }),
 });
 
 export const {
   useGetProjectsQuery,
-  useCreateProjectMutation,
-  useGetTasksQuery,
+  useCreateMilestoneMutation,
+  useGetTaskMilestoneQuery,
   useCreateTaskMutation,
   useUpdateTaskStatusMutation,
   useUpdateTaskMutation,
@@ -250,4 +369,9 @@ export const {
   useGetTasksByUserQuery,
   useGetProjectTasksQuery,
   useCreateAssetRequestMutation,
+  useGetAssetsQuery,
+  useGetAssetTypesQuery,
+  useGetMilestonesByProjectQuery,
+  useGetTaskCommentsQuery,
+  usePostTaskCommentMutation,
 } = api;

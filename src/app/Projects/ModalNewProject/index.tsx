@@ -1,18 +1,34 @@
+"use client";
 import Modal from "@/components/Modal";
-import { useCreateProjectMutation } from "@/state/api";
+import { useCreateMilestoneMutation } from "@/state/api";
 import { formatISO } from "date-fns";
-import React, { useState } from "react";
+import { useParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
-type Props = { isOpen: boolean; onClose: () => void };
+type Props = { isOpen: boolean; onClose: () => void; id?: string | null };
 
-const ModalNewProject = ({ isOpen, onClose }: Props) => {
-  const [createProject, { isLoading }] = useCreateProjectMutation();
-  const [projectName, setProjectName] = useState("");
+const ModalNewProject = ({ isOpen, onClose, id = null }: Props) => {
+  const params = useParams();
+  const [createProject, { isLoading }] = useCreateMilestoneMutation();
+  const [title, settitle] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Lấy projectId từ URL, đảm bảo kiểu dữ liệu là string
+  const projectIdFromUrl = Array.isArray(params.projectID)
+    ? params.projectID[0]
+    : params.projectID;
+
+  // Nếu `id` không null, dùng `id`, ngược lại dùng `projectIdFromUrl`
+  const projectID = id !== null ? id : projectIdFromUrl || "";
+  console.log("Project ID:", projectID);
+
   const handleSubmit = async () => {
-    if (!projectName || !startDate || !endDate) return;
+    if (!title || !startDate || !endDate || !projectID) {
+      console.error("Missing required fields");
+      return;
+    }
 
     const formattedStartDate = formatISO(new Date(startDate), {
       representation: "complete",
@@ -21,15 +37,25 @@ const ModalNewProject = ({ isOpen, onClose }: Props) => {
       representation: "complete",
     });
 
-    await createProject({
-      name: projectName,
-      description,
-      startDate: formattedStartDate,
-      endDate: formattedEndDate,
-    });
+    try {
+      const response = await createProject({
+        milestoneID: "",
+        title,
+        description,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+        projectID: projectID,
+      }).unwrap(); // Dùng .unwrap() để nhận lỗi từ RTK Query
+
+      console.log("Project created:", response);
+      onClose(); // Đóng modal sau khi tạo thành công
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
   };
+
   const isFormValid = () => {
-    return projectName && description && startDate && endDate;
+    return title && description && startDate && endDate;
   };
   const inputStyles =
     "w-full rounded border border-gray-300 p-2 shadow-sm dark:border-dark-tertiary dark:bg-dark-tertiary dark:text-white dark:focus:outline-none";
@@ -46,9 +72,9 @@ const ModalNewProject = ({ isOpen, onClose }: Props) => {
         <input
           type="text"
           className={inputStyles}
-          placeholder="Project Name"
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
+          placeholder="Milestone Title"
+          value={title}
+          onChange={(e) => settitle(e.target.value)}
         />
         <textarea
           className={inputStyles}
@@ -70,6 +96,17 @@ const ModalNewProject = ({ isOpen, onClose }: Props) => {
             onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
+        {projectID === null && (
+          <input
+            type="text"
+            className={inputStyles}
+            placeholder="project ID"
+            value={projectID}
+            onChange={(e) => {
+              console.log("project ID nhập vào:", e.target.value);
+            }}
+          />
+        )}
         <button
           type="submit"
           className={`focus-offset-2 mt-4 flex w-full justify-center rounded-md border border-transparent bg-blue-primary px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
