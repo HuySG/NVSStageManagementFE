@@ -27,7 +27,7 @@ const UserProfile = () => {
           <div className="flex items-center gap-3">
             {/* Avatar của user */}
             <Image
-              src={user?.pictureProfile || "/avatar.png"} // Ảnh từ user hoặc ảnh mặc định
+              src={user?.pictureProfile || "/1.png"} // Ảnh từ user hoặc ảnh mặc định
               alt="User Avatar"
               width={36}
               height={36}

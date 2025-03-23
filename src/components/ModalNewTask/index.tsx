@@ -180,7 +180,6 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
         tag,
         startDate: formattedStartDate,
         endDate: formattedDueDate,
-        assignedUsers: assignedUsersFormatted,
         attachments: taskAttachments,
         milestoneId: milestoneId,
       });
@@ -376,7 +375,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
           )}
         </div>
 
-        <select
+        {/* <select
           className="w-full rounded border border-gray-300 p-2 dark:bg-dark-tertiary dark:text-white"
           value={assignedUsers.map((u) => u.userID)}
           onChange={(e) => {
@@ -410,8 +409,8 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
           ) : (
             <option disabled>Không có dữ liệu</option>
           )}
-        </select>
-        <div>
+        </select> */}
+        {/* <div>
           {assignedUsers.map((user) => (
             <div key={user.userID} className="flex items-center gap-2">
               <span>{user.fullName}</span>
@@ -428,7 +427,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
               </button>
             </div>
           ))}
-        </div>
+        </div> */}
         {id === null && (
           <input
             type="text"

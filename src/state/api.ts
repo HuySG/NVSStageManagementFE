@@ -45,9 +45,9 @@ export interface User {
   department: Department;
   pictureProfile?: string;
   createDate: string;
-  roleID: string;
+  role: Role;
   status: string;
-  TaskId: TaskUser[];
+  TaskUser: TaskUser[];
 }
 export interface Department {
   id: string;
@@ -75,6 +75,7 @@ export interface TaskUser {
   email?: string;
   pictureProfile?: string;
 }
+
 export interface Task {
   taskID: string;
   title: string;
@@ -84,41 +85,36 @@ export interface Task {
   startDate: string | null;
   endDate: string | null;
   status: string;
-  assigneeID: string; // Thêm vào từ JSON mẫu
-  assigneeInfo?: {
-    // Thêm vào từ JSON mẫu
-    id: string;
-    fullName: string;
-    dayOfBirth: string;
-    email: string;
-    password: string;
-    department: {
-      id: string;
-      name: string;
-      description: string;
-    };
-    pictureProfile: string;
-    createDate: string;
-    role: {
-      id: number;
-      roleName: string;
-    };
-    status: string;
-    taskUsers: {
-      taskID: string;
-      userID: string[];
-    }[];
-  };
-  createBy: string; // Thêm từ JSON mẫu
-  createDate: string; // Thêm từ JSON mẫu
-  updateBy: string; // Chỉnh sửa từ UpdateBy thành updateBy cho khớp với JSON
+  assigneeID: string;
+  createBy: string;
+  createDate: string;
+  updateBy: string;
   updateDate: string;
-  attachments?: Attachment[];
-  assignedUsers?: TaskUser[]; // Được sử dụng trong BoardView
-  watcher?: Watcher[]; // Chỉnh sửa từ array thành optional
-  projectID?: string; // Chỉnh sửa kiểu String thành string và optional
-  milestoneId: string; // Giữ nguyên như trong JSON mẫu
-  comments?: Comment[]; // Thêm mới để hỗ trợ tính năng comments
+  attachments?: Attachment[]; // Giữ nguyên
+  assigneeInfo?: AssigneeInfo; // Sửa thành một object thay vì array
+  watchers?: Watcher[]; // Giữ nguyên
+  projectID?: string; // Giữ nguyên
+  milestoneId: string;
+  comments?: Comment[]; // Giữ nguyên
+  TaskUser?: TaskUser[]; // Giữ nguyên
+}
+export interface Role {
+  id: number;
+  roleName: string;
+}
+
+export interface AssigneeInfo {
+  id: string;
+  fullName: string;
+  dayOfBirth: string;
+  email: string;
+  pictureProfile: string;
+  createDate: string;
+  password: string;
+  department: Department;
+  role: Role;
+  status: string;
+  taskUsers: TaskUser[];
 }
 
 export interface Watcher {
@@ -299,6 +295,10 @@ export const api = createApi({
     }),
 
     // 📌 Thêm API để tạo yêu cầu tài sản
+    getRequestAssets: build.query<AssetRequest[], void>({
+      query: () => "request-asset",
+      providesTags: ["AssetRequests"],
+    }),
 
     createAssetRequest: build.mutation<AssetRequest, Partial<AssetRequest>>({
       query: (assetRequest) => ({
@@ -368,6 +368,7 @@ export const {
   useGetUsersQuery,
   useGetTasksByUserQuery,
   useGetProjectTasksQuery,
+  useGetRequestAssetsQuery,
   useCreateAssetRequestMutation,
   useGetAssetsQuery,
   useGetAssetTypesQuery,

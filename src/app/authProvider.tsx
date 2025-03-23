@@ -20,19 +20,28 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const [loginUser] = useLoginUserMutation();
   // Lấy thông tin user từ API
-  // Không dùng `skip: !isAuthenticated` để luôn có thể refetch
   const { data: userInfo, refetch } = useGetUserInfoQuery(undefined);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
+    const expireTime = localStorage.getItem("expireTime");
 
-    if (token) {
-      setIsAuthenticated(true);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    if (token && expireTime) {
+      const now = new Date().getTime();
+      if (now > parseInt(expireTime, 10)) {
+        logout();
+      } else {
+        setIsAuthenticated(true);
+        if (storedUser) setUser(JSON.parse(storedUser));
+        refetch();
+
+        // Thiết lập timeout để tự động logout khi hết hạn
+        const timeLeft = parseInt(expireTime, 10) - now;
+        setTimeout(() => {
+          logout();
+        }, timeLeft);
       }
-      refetch(); // Gọi API để cập nhật thông tin mới nhất
     } else if (pathname !== "/login") {
       router.push("/login");
     }
@@ -49,10 +58,19 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await loginUser({ email, password }).unwrap();
       if (response.result.authenticated) {
+        const expireTime = new Date().getTime() + 60 * 60 * 1000; // 1 giờ sau
         localStorage.setItem("token", response.result.token);
+        localStorage.setItem("expireTime", expireTime.toString());
         setIsAuthenticated(true);
         await refetch(); // Gọi API ngay lập tức để cập nhật user
         router.push("/home");
+        // Thiết lập timeout tự logout
+        setTimeout(
+          () => {
+            logout();
+          },
+          60 * 60 * 1000,
+        );
       } else {
         throw new Error("Invalid credentials");
       }
@@ -64,6 +82,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("expireTime");
     setIsAuthenticated(false);
     setUser(null);
     router.push("/login");

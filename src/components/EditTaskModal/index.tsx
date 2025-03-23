@@ -1,4 +1,4 @@
-import { Status, TaskUser, Watcher } from "@/state/api";
+import { AssigneeInfo, Status, TaskUser, Watcher } from "@/state/api";
 import { Task as TaskType } from "@/state/api";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -7,7 +7,7 @@ import RequestAssetModal from "../RequestAssetModal/RequestAssetModal";
 
 type EditTaskModalProps = {
   task: TaskType;
-  users: TaskUser[];
+  users: AssigneeInfo[];
   onClose: () => void;
   onSave: (updatedTask: Partial<TaskType>) => void;
 };
@@ -29,11 +29,14 @@ const EditTaskModal = ({
   );
   const [tags, setTags] = useState(task.tag || "");
   const [status, setStatus] = useState(task.status || "");
-  const [assignedUsers, setAssignedUsers] = useState<TaskUser[]>(
-    task.assignedUsers || [],
+  const [assigneeinfo, setAssigneeinfo] = useState<AssigneeInfo | undefined>(
+    task.assigneeInfo ?? undefined,
   );
+
   const [newComment, setNewComment] = useState("");
-  const [watcher, setWatcher] = useState<Watcher[]>(task.watcher || []);
+
+  const [watchers, setWatcher] = useState(task.watchers || []);
+
   const [milestoneId, setMilestoneId] = useState(task.milestoneId || "");
   const [attachments, setAttachments] = useState(task.attachments || []);
   const [newAttachment, setNewAttachment] = useState<File | null>(null);
@@ -41,43 +44,38 @@ const EditTaskModal = ({
   // Hàm xử lý người dùng được gán việc
   const handleAddUser = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUserId = e.target.value;
-    const selectedUser = users.find((user) => user.userID === selectedUserId);
+    const selectedUser = users.find((user) => user.id === selectedUserId);
 
-    if (
-      selectedUser &&
-      !assignedUsers.some((u) => u.userID === selectedUserId)
-    ) {
-      setAssignedUsers([...assignedUsers, selectedUser]);
+    if (selectedUser) {
+      setAssigneeinfo(selectedUser); // Chỉ gán một người
     }
   };
 
-  const handleRemoveUser = (userIdToRemove: string) => {
-    setAssignedUsers(
-      assignedUsers.filter((user) => user.userID !== userIdToRemove),
-    );
+  const handleRemoveUser = () => {
+    setAssigneeinfo(undefined); // Xóa người nhận task
   };
 
   // Hàm xử lý người theo dõi
   const handleAddWatcher = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUserId = e.target.value;
-    const selectedUser = users.find((user) => user.userID === selectedUserId);
+    const selectedUser = users.find((user) => user.id === selectedUserId);
 
-    if (selectedUser && !watcher.some((w) => w.userID === selectedUserId)) {
+    if (selectedUser && !watchers.some((w) => w.userID === selectedUserId)) {
       // Chuyển đổi từ TaskUser sang Watcher
       const newWatcher: Watcher = {
-        userID: selectedUser.userID,
+        userID: selectedUser.id,
         fullName: selectedUser.fullName || "", // Xử lý trường hợp undefined
         dayOfBirth: selectedUser.dayOfBirth || "",
         email: selectedUser.email || "",
         pictureProfile: selectedUser.pictureProfile || "",
       };
 
-      setWatcher([...watcher, newWatcher]);
+      setWatcher([...watchers, newWatcher]);
     }
   };
 
   const handleRemoveWatcher = (userIdToRemove: string) => {
-    setWatcher(watcher.filter((user) => user.userID !== userIdToRemove));
+    setWatcher(watchers.filter((user) => user.userID !== userIdToRemove));
   };
 
   const handleSave = () => {
@@ -89,11 +87,11 @@ const EditTaskModal = ({
       endDate: endDate ? new Date(endDate).toISOString() : undefined,
       tag: tags,
       status,
-      assignedUsers: assignedUsers,
-      watcher,
+      watchers: watchers,
+      assigneeID: assigneeinfo?.id || "", // Lưu người được giao task
+      assigneeInfo: assigneeinfo, // Lưu người được giao task
       milestoneId,
       attachments,
-      // Thêm các trường khác nếu cần
       updateDate: new Date().toISOString(), // Tự động cập nhật ngày chỉnh sửa
     });
   };
@@ -110,15 +108,11 @@ const EditTaskModal = ({
     status !== task.status ||
     milestoneId !== task.milestoneId ||
     attachments.length !== (task.attachments?.length || 0) ||
-    assignedUsers.length !== (task.assignedUsers?.length || 0) ||
-    watcher.length !== (task.watcher?.length || 0) ||
-    assignedUsers.some(
-      (user, index) => user.userID !== task.assignedUsers?.[index]?.userID,
-    ) ||
-    watcher.some(
-      (user, index) => user.userID !== task.watcher?.[index]?.userID,
+    watchers.length !== (task.watchers?.length || 0) ||
+    watchers.some(
+      (user, index) => user.userID !== task.watchers?.[index]?.userID,
     );
-
+  assigneeinfo?.id !== task.assigneeInfo?.id; // Không còn lỗi nul
   const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
 
   return (
@@ -176,7 +170,6 @@ const EditTaskModal = ({
               <option value={Status.Completed}>Completed</option>
             </select>
           </div>
-
           {/* Assigner */}
           <div>
             <label className="block text-sm font-medium dark:text-white">
@@ -185,31 +178,24 @@ const EditTaskModal = ({
             <select
               onChange={handleAddUser}
               className="mt-2 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              value={assigneeinfo?.id || ""}
             >
               <option value="">Select User</option>
               {users.map((user) => (
-                <option key={user.userID} value={user.userID}>
+                <option key={user.id} value={user.id}>
                   {user.fullName}
                 </option>
               ))}
             </select>
 
-            <div className="mt-2 space-y-2">
-              {assignedUsers.map((user) => (
-                <div
-                  key={user.userID}
-                  className="flex items-center justify-between rounded-lg bg-gray-200 px-3 py-1"
-                >
-                  <span>{user.fullName}</span>
-                  <button
-                    onClick={() => handleRemoveUser(user.userID)}
-                    className="text-red-500"
-                  >
-                    ❌
-                  </button>
-                </div>
-              ))}
-            </div>
+            {assigneeinfo && (
+              <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-200 px-3 py-1">
+                <span>{assigneeinfo.fullName}</span>
+                <button onClick={handleRemoveUser} className="text-red-500">
+                  ❌
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Watchers */}
@@ -223,14 +209,14 @@ const EditTaskModal = ({
             >
               <option value="">Add Watcher</option>
               {users.map((user) => (
-                <option key={user.userID} value={user.userID}>
+                <option key={user.id} value={user.id}>
                   {user.fullName}
                 </option>
               ))}
             </select>
 
             <div className="mt-2 space-y-2">
-              {watcher.map((user) => (
+              {watchers.map((user) => (
                 <div
                   key={user.userID}
                   className="flex items-center justify-between rounded-lg bg-gray-200 px-3 py-1"

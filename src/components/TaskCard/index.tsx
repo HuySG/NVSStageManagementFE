@@ -8,14 +8,6 @@ type Props = {
 };
 
 function TaskCard({ task }: Props) {
-  console.log("Task nhận vào TaskCard:", task);
-  console.log("Assigned Users:", task.assignedUsers);
-
-  task.assignedUsers.forEach((taskUser, index) => {
-    console.log(`User ${index}:`, taskUser.userID);
-    console.log(`Full Name: ${taskUser.fullName}`);
-  });
-
   return (
     <div className="mb-3 rounded bg-white p-4 shadow dark:bg-dark-secondary dark:text-white">
       {task.attachments && task.attachments.length > 0 && (
@@ -24,8 +16,8 @@ function TaskCard({ task }: Props) {
           <div className="flex flex-wrap">
             {task.attachments?.map((attachment) => (
               <Image
-                key={String(attachment.id)}
-                src={`/${attachment.fileURL}`}
+                key={String(attachment.taskId)}
+                src={`/${attachment.fileUrl}`}
                 alt={attachment.fileName}
                 width={400}
                 height={200}
@@ -67,10 +59,8 @@ function TaskCard({ task }: Props) {
       </p> */}
       <p>
         <strong>Assignee:</strong>{" "}
-        {task.assignedUsers.length > 0
-          ? task.assignedUsers
-              .map((taskUser) => taskUser.fullName || "No Name")
-              .join(", ")
+        {task.assigneeInfo
+          ? `${task.assigneeInfo.fullName || "No Name"}`
           : "Unassigned"}
       </p>
     </div>

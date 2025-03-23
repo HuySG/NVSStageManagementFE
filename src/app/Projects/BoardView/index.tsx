@@ -1,4 +1,5 @@
 import {
+  AssigneeInfo,
   TaskUser,
   useGetTaskMilestoneQuery,
   useGetUsersQuery,
@@ -20,14 +21,6 @@ type BoardProps = {
   setIsModaNewTasklOpen: (isOpen: boolean) => void;
 };
 const taskStatus = ["ToDo", "WorkInProgress", "UnderReview", "Completed"];
-
-const convertUsersToTaskUsers = (users: User[]): TaskUser[] => {
-  return users.map((user) => ({
-    userID: user.id, // Assuming 'id' in User corresponds to 'userID' in TaskUser
-    fullName: user.fullName, // Adjust based on actual User type properties
-    pictureProfile: user.pictureProfile, // Adjust based on actual User type properties
-  }));
-};
 
 const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
   const [editingTask, setEditingTask] = useState<TaskType | null>(null);
@@ -86,7 +79,23 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
       {editingTask && (
         <EditTaskModal
           task={editingTask}
-          users={users ? convertUsersToTaskUsers(users) : []}
+          users={
+            users
+              ? users.map((user) => ({
+                  id: user.id,
+                  fullName: user.fullName || "",
+                  dayOfBirth: user.dayOfBirth || "",
+                  email: user.email,
+                  password: user.password,
+                  department: user.department,
+                  pictureProfile: user.pictureProfile || "",
+                  createDate: user.createDate,
+                  role: user.role || { id: 0, roleName: "Unknown" },
+                  status: user.status,
+                  taskUsers: user.TaskUser || [],
+                }))
+              : []
+          } // Chuyển đổi User[] thành AssigneeInfo[]
           onClose={() => setEditingTask(null)}
           onSave={handleTaskEdit}
         />
@@ -275,24 +284,22 @@ const Task = ({ task, onEditTask }: TaskProps) => {
         <div className="mt-4 border-t border-gray-200 dark:border-stroke-dark" />
         <div className="mt-3 flex items-center justify-between">
           <div className="flex -space-x-[6px] overflow-hidden">
-            {task.assignedUsers && task.assignedUsers.length > 0 ? (
-              task.assignedUsers.map((taskUser) => (
-                <Image
-                  key={taskUser.userID}
-                  src={
-                    taskUser.pictureProfile
-                      ? `/${taskUser.pictureProfile}`
-                      : "/default-avatar.png"
-                  }
-                  alt={taskUser.fullName || "User"}
-                  width={30}
-                  height={30}
-                  className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
-                />
-              ))
+            {task?.assigneeInfo ? (
+              <Image
+                key={task.assigneeInfo.id}
+                src={
+                  task.assigneeInfo.pictureProfile
+                    ? `/${task.assigneeInfo.pictureProfile}`
+                    : "/default-avatar.png"
+                }
+                alt={task.assigneeInfo.fullName || "User"}
+                width={30}
+                height={30}
+                className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
+              />
             ) : (
               <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-xs font-medium dark:border-dark-secondary dark:bg-dark-tertiary">
-                NA
+                Null
               </div>
             )}
           </div>

@@ -53,16 +53,11 @@ const columns: GridColDef[] = [
     headerName: "Assignee",
     width: 200,
     renderCell: (params) => {
-      // Định nghĩa kiểu của assignedUsers
-      const assignedUsers: { userID: string; fullName: string }[] =
-        params.row.assignedUsers || [];
+      // Kiểm tra xem assigneeInfo có tồn tại không
+      const assignee = params.row.assigneeInfo;
 
-      // Lấy danh sách fullName của users
-      const assigneeNames = assignedUsers
-        .map((user) => user.fullName)
-        .join(", ");
-
-      return assigneeNames || "Unassigned";
+      // Trả về tên của assignee nếu có, ngược lại hiển thị "Unassigned"
+      return assignee?.fullName || "Unassigned";
     },
   },
 ];
