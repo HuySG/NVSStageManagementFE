@@ -63,7 +63,11 @@ body,
   width: 0px;
   height: 0px;
 }
-
+.vertical-timeline::before {
+  background: #4f46e5 !important; /* Màu xanh đậm */
+  width: 5px !important; /* Tăng độ dày */
+  border-radius: 4px; /* Làm mềm góc */
+}
 
 
 @layer base {

@@ -148,7 +148,7 @@ export interface AssetCategory {
 export interface AssetType {
   id: string;
   name: string;
-  categories: AssetCategory[];
+  categories: AssetCategory; // Một kiểu tài sản chỉ thuộc một loại tài sản
 }
 
 // 📌 Định nghĩa tài sản
@@ -165,8 +165,8 @@ export interface Asset {
   createdBy: string;
   image: string;
   categoryId: string;
-  category: AssetCategory[];
-  assetType: AssetType[];
+  category: AssetCategory; // Một tài sản chỉ thuộc một loại tài sản
+  assetType: AssetType; // Một tài sản chỉ thuộc một kiểu tài sản
 }
 
 // 📌 Định nghĩa yêu cầu tài sản
@@ -176,9 +176,17 @@ export interface AssetRequest {
   description: string;
   startTime: string;
   endTime: string;
-  asset: Asset[];
-  task: Task[];
+  asset: Asset | null; // Một yêu cầu chỉ liên quan đến một tài sản
+  task: Task;
   status: string;
+  requesterInfo: RequesterInfo | null;
+}
+// 📌 Định nghĩa người yêu cầu
+export interface RequesterInfo {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
 }
 
 export interface Attachment {
@@ -210,10 +218,19 @@ export const api = createApi({
     "Comments",
     "AssetTypes",
     "Assets",
+    "Attachments",
   ],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
       query: () => "project",
+      providesTags: ["Projects"],
+    }),
+    getProjectsDepartment: build.query<Project[], string>({
+      query: (departmentId) => `project/department?Id=${departmentId}`,
+      providesTags: ["Projects"],
+    }),
+    getProjectsByUserId: build.query<Project[], string>({
+      query: (userId) => `project/userId?userId=${userId}`,
       providesTags: ["Projects"],
     }),
     createMilestone: build.mutation<Milestone, Partial<Milestone>>({
@@ -231,13 +248,15 @@ export const api = createApi({
           ? result.map(({ taskID }) => ({ type: "Tasks" as const, id: taskID }))
           : [{ type: "Tasks" as const }],
     }),
-    getTasksByUser: build.query<Task[], number>({
-      query: (userId) => `tasks/user/${userId}`,
+
+    getTasksByUser: build.query<Task[], string>({
+      query: (userId) => `tasks/by-user/${userId}`,
       providesTags: (result, error, userId) =>
         result
-          ? result.map(({ taskID }) => ({ type: "Tasks", taskID }))
+          ? result.map(({ taskID }) => ({ type: "Tasks", id: taskID }))
           : [{ type: "Tasks", id: userId }],
     }),
+
     createTask: build.mutation<Task, Partial<Task>>({
       query: (task) => ({
         url: "tasks",
@@ -324,6 +343,13 @@ export const api = createApi({
       }),
       providesTags: ["AssetTypes"],
     }),
+    getRequestAssetByDepartment: build.query<AssetRequest[], string>({
+      query: (departmentId) => ({
+        url: `request-asset/leader/department?Id=${departmentId}`,
+        method: "GET",
+      }),
+      providesTags: ["AssetRequests"],
+    }),
     // 📌 Thêm API để lấy danh sách milestone theo project
     getMilestonesByProject: build.query<Milestone[], { projectID: string }>({
       query: ({ projectID }) => `milestones/project/${projectID}`,
@@ -344,7 +370,7 @@ export const api = createApi({
     }),
     postTaskComment: build.mutation<Comment, Partial<Comment>>({
       query: (commentData) => ({
-        url: "/api/v1/comment",
+        url: "comment",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -353,26 +379,63 @@ export const api = createApi({
       }),
       invalidatesTags: [{ type: "Comments" }],
     }),
+    uploadFileMetadata: build.mutation<
+      Attachment, // Kiểu trả về từ API
+      Omit<Attachment, "attachmentId"> // Loại bỏ attachmentId vì nó có thể được sinh ra từ server
+    >({
+      query: (data) => ({
+        url: "attachments",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Attachments"],
+    }),
   }),
 });
 
 export const {
+  //getProjects
   useGetProjectsQuery,
+  //getProjectsDepartment
+  useGetProjectsDepartmentQuery,
+  //getProjectsByUserId
+  useGetProjectsByUserIdQuery,
+  //createMilestone
   useCreateMilestoneMutation,
+  //getTaskMilestone
   useGetTaskMilestoneQuery,
-  useCreateTaskMutation,
-  useUpdateTaskStatusMutation,
-  useUpdateTaskMutation,
-  useLoginUserMutation,
-  useGetUserInfoQuery,
-  useGetUsersQuery,
+  //getTasksByUser
   useGetTasksByUserQuery,
+  //createTask
+  useCreateTaskMutation,
+  //updateTaskStatus
+  useUpdateTaskStatusMutation,
+  //updateTask
+  useUpdateTaskMutation,
+  //loginUser
+  useLoginUserMutation,
+  //getUserInfo
+  useGetUserInfoQuery,
+  //getUsers
+  useGetUsersQuery,
+  //getProjectTasks
   useGetProjectTasksQuery,
+  //getRequestAssets
   useGetRequestAssetsQuery,
+  //createAssetRequest
   useCreateAssetRequestMutation,
+  //getAssets
   useGetAssetsQuery,
+  //getAssetTypes
   useGetAssetTypesQuery,
+  //getRequestAssetByDepartment
+  useGetRequestAssetByDepartmentQuery,
+  //getMilestonesByProject
   useGetMilestonesByProjectQuery,
+  //getTaskComments
   useGetTaskCommentsQuery,
+  //postTaskComment
   usePostTaskCommentMutation,
+  //uploadFileMetadata
+  useUploadFileMetadataMutation,
 } = api;

@@ -1,9 +1,17 @@
-import { AssigneeInfo, Status, TaskUser, Watcher } from "@/state/api";
+import {
+  AssigneeInfo,
+  Status,
+  TaskUser,
+  useUploadFileMetadataMutation,
+  Watcher,
+} from "@/state/api";
 import { Task as TaskType } from "@/state/api";
 import { useState } from "react";
 import { format } from "date-fns";
 import { X } from "lucide-react";
 import RequestAssetModal from "../RequestAssetModal/RequestAssetModal";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebaseConfig";
 
 type EditTaskModalProps = {
   task: TaskType;
@@ -40,6 +48,7 @@ const EditTaskModal = ({
   const [milestoneId, setMilestoneId] = useState(task.milestoneId || "");
   const [attachments, setAttachments] = useState(task.attachments || []);
   const [newAttachment, setNewAttachment] = useState<File | null>(null);
+  const [uploadFileMetadata] = useUploadFileMetadataMutation(); // Gọi mutation từ RTK Query
 
   // Hàm xử lý người dùng được gán việc
   const handleAddUser = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -76,6 +85,55 @@ const EditTaskModal = ({
 
   const handleRemoveWatcher = (userIdToRemove: string) => {
     setWatcher(watchers.filter((user) => user.userID !== userIdToRemove));
+  };
+
+  const handleUploadFile = async () => {
+    if (!newAttachment) return;
+
+    const storageRef = ref(storage, `attachments/${newAttachment.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, newAttachment);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(`Upload progress: ${progress.toFixed(2)}%`);
+      },
+      (error) => {
+        console.error("Upload failed:", error);
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        console.log("File uploaded:", downloadURL);
+
+        const newFile = {
+          fileName: newAttachment.name,
+          fileUrl: downloadURL,
+          taskId: task.taskID,
+          uploadedById: assigneeinfo?.id || "",
+        };
+
+        try {
+          // Gửi metadata file lên server bằng RTK Query
+          await uploadFileMetadata(newFile).unwrap();
+          console.log("File metadata saved to DB");
+
+          // Cập nhật danh sách attachment hiển thị
+          setAttachments((prev) => [
+            ...prev,
+            { ...newFile, attachmentId: crypto.randomUUID() },
+          ]);
+        } catch (error) {
+          console.error("Error saving attachment metadata:", error);
+        }
+
+        setNewAttachment(null); // Reset input file
+      },
+    );
+  };
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((file) => file.attachmentId !== id));
   };
 
   const handleSave = () => {
@@ -116,15 +174,18 @@ const EditTaskModal = ({
   const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-lg bg-white p-6 dark:bg-dark-secondary">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-lg dark:bg-dark-secondary">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold dark:text-white">
+            Task Details
+          </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="rounded-full p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
@@ -139,7 +200,7 @@ const EditTaskModal = ({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
             />
           </div>
 
@@ -151,9 +212,77 @@ const EditTaskModal = ({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="h-24 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="h-24 w-full resize-none rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
             />
           </div>
+
+          {/* Attachments */}
+          <div>
+            <label className="block text-sm font-medium dark:text-white">
+              Attachments
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                onChange={(e) => setNewAttachment(e.target.files?.[0] || null)}
+                className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              />
+              <button
+                onClick={handleUploadFile}
+                disabled={!newAttachment}
+                className={`rounded-lg px-4 py-2 text-white transition ${
+                  newAttachment
+                    ? "bg-blue-500 hover:bg-blue-600"
+                    : "cursor-not-allowed bg-gray-400"
+                }`}
+              >
+                Upload
+              </button>
+            </div>
+            {/* Danh sách file đã upload */}
+            <div className="mt-3 space-y-2">
+              {attachments.map((file) => {
+                const isImage = file.fileUrl.match(
+                  /\.(jpeg|jpg|png|gif|webp)$/i,
+                );
+                return (
+                  <div
+                    key={file.attachmentId}
+                    className="flex items-center justify-between rounded-lg bg-gray-100 px-3 py-2 shadow-sm transition hover:bg-gray-200 dark:bg-dark-tertiary"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isImage ? (
+                        <img
+                          src={file.fileUrl}
+                          alt={file.fileName}
+                          className="h-12 w-12 rounded border object-cover"
+                        />
+                      ) : (
+                        <span className="text-gray-700 dark:text-white">
+                          📄
+                        </span>
+                      )}
+                      <a
+                        href={file.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400"
+                      >
+                        {file.fileName}
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveAttachment(file.attachmentId)}
+                      className="text-red-500 transition hover:text-red-700"
+                    >
+                      ❌
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Status */}
           <div>
             <label className="block text-sm font-medium dark:text-white">
@@ -162,7 +291,7 @@ const EditTaskModal = ({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
             >
               <option value={Status.ToDo}>To Do</option>
               <option value={Status.WorkInProgress}>Work In Progress</option>
@@ -170,14 +299,15 @@ const EditTaskModal = ({
               <option value={Status.Completed}>Completed</option>
             </select>
           </div>
-          {/* Assigner */}
+
+          {/* Assignee */}
           <div>
             <label className="block text-sm font-medium dark:text-white">
               Assigned To
             </label>
             <select
               onChange={handleAddUser}
-              className="mt-2 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="mt-2 w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
               value={assigneeinfo?.id || ""}
             >
               <option value="">Select User</option>
@@ -187,15 +317,6 @@ const EditTaskModal = ({
                 </option>
               ))}
             </select>
-
-            {assigneeinfo && (
-              <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-200 px-3 py-1">
-                <span>{assigneeinfo.fullName}</span>
-                <button onClick={handleRemoveUser} className="text-red-500">
-                  ❌
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Watchers */}
@@ -205,7 +326,7 @@ const EditTaskModal = ({
             </label>
             <select
               onChange={handleAddWatcher}
-              className="mt-2 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="mt-2 w-full rounded-lg border p-2 shadow-sm focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             >
               <option value="">Add Watcher</option>
               {users.map((user) => (
@@ -219,12 +340,12 @@ const EditTaskModal = ({
               {watchers.map((user) => (
                 <div
                   key={user.userID}
-                  className="flex items-center justify-between rounded-lg bg-gray-200 px-3 py-1"
+                  className="flex items-center justify-between rounded-lg bg-gray-100 px-3 py-1 shadow-sm transition hover:bg-gray-200"
                 >
                   <span>{user.fullName}</span>
                   <button
                     onClick={() => handleRemoveWatcher(user.userID)}
-                    className="text-red-500"
+                    className="text-red-500 transition hover:text-red-700"
                   >
                     ❌
                   </button>
@@ -243,7 +364,7 @@ const EditTaskModal = ({
               onChange={(e) =>
                 setPriority(e.target.value as TaskType["priority"])
               }
-              className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
             >
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
@@ -262,7 +383,7 @@ const EditTaskModal = ({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+                className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
               />
             </div>
             <div className="flex-1">
@@ -273,53 +394,29 @@ const EditTaskModal = ({
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+                className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
               />
-            </div>
-          </div>
-
-          {/* Comments */}
-          <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Comments
-            </label>
-            <div className="rounded border p-2 dark:bg-dark-tertiary dark:text-white">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No comments yet.
-              </p>
-            </div>
-            <div className="mt-2 flex gap-2">
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Write a comment..."
-                className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
-              />
-              <button className="rounded bg-blue-500 px-3 text-white">
-                Add
-              </button>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-4 flex justify-end gap-2">
+          <div className="mt-6 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="rounded bg-gray-400 px-4 py-2 text-white"
+              className="rounded-lg bg-gray-400 px-5 py-2 text-white transition hover:bg-gray-500"
             >
               Cancel
             </button>
             <button
               onClick={() => setIsRequestAssetOpen(true)}
-              className="rounded bg-green-500 px-4 py-2 text-white"
+              className="rounded-lg bg-green-500 px-5 py-2 text-white transition hover:bg-green-600"
             >
               Request Asset
             </button>
             <button
               onClick={handleSave}
-              disabled={!isChanged} // Chỉ cho phép click khi có thay đổi
-              className={`rounded px-4 py-2 text-white ${
+              disabled={!isChanged}
+              className={`rounded-lg px-5 py-2 text-white transition ${
                 isChanged
                   ? "bg-blue-500 hover:bg-blue-600"
                   : "cursor-not-allowed bg-gray-400"

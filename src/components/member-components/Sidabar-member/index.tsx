@@ -1,11 +1,8 @@
 "use client";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
+import UserProfile from "@/components/UserProfile";
 import { setIsSidebarCollapsed } from "@/state";
-import {
-  useGetProjectsDepartmentQuery,
-  useGetProjectsQuery,
-  useGetUserInfoQuery,
-} from "@/state/api";
+import { useGetProjectsByUserIdQuery, useGetUserInfoQuery } from "@/state/api";
 import {
   AlertCircle,
   AlertOctagon,
@@ -29,9 +26,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState } from "react";
-import UserProfile from "../UserProfile";
 
-const Sidebar = () => {
+const Sidebarmember = () => {
   const [showProjects, setShowProjects] = useState(true);
   const [showPriority, setShowPriority] = useState(true);
   const dispatch = useAppDispatch();
@@ -39,13 +35,14 @@ const Sidebar = () => {
     (state) => state.global.isSidebarCollapsed,
   );
   const { data: user, isLoading, error } = useGetUserInfoQuery();
-  const departmentId = user?.department?.id ?? ""; // Gán giá trị mặc định là chuỗi rỗng
+  const userId = user?.id ?? ""; // Gán giá trị mặc định là chuỗi rỗng
+
   const {
     data: projects,
     isLoading: isProjectsLoading,
     error: projectsError,
-  } = useGetProjectsDepartmentQuery(departmentId, {
-    skip: !departmentId, // Chỉ gọi API nếu departmentId có giá trị
+  } = useGetProjectsByUserIdQuery(userId, {
+    skip: !userId, // Chỉ gọi API nếu userId có giá trị
   });
   if (isLoading) return <div>Loading user info...</div>;
   if (error || !user) return <div>Failed to load user info</div>;
@@ -191,4 +188,4 @@ const SidebarLink = ({ href, icon: Icon, label }: SiderlinkProps) => {
   );
 };
 
-export default Sidebar;
+export default Sidebarmember;

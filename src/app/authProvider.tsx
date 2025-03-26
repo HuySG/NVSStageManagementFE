@@ -58,13 +58,26 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await loginUser({ email, password }).unwrap();
       if (response.result.authenticated) {
-        const expireTime = new Date().getTime() + 60 * 60 * 1000; // 1 giờ sau
+        const expireTime = new Date().getTime() + 60 * 60 * 1000;
         localStorage.setItem("token", response.result.token);
         localStorage.setItem("expireTime", expireTime.toString());
         setIsAuthenticated(true);
-        await refetch(); // Gọi API ngay lập tức để cập nhật user
-        router.push("/home");
-        // Thiết lập timeout tự logout
+
+        await refetch(); // ✅ Gọi lại API để cập nhật userInfo
+
+        // Chờ userInfo cập nhật rồi mới set
+        if (userInfo) {
+          setUser(userInfo);
+          localStorage.setItem("user", JSON.stringify(userInfo));
+
+          let redirectPath =
+            userInfo.role.roleName === "Staff" ? "/Member" : "/home";
+          router.push(redirectPath);
+        } else {
+          router.push("/home");
+        }
+
+        // Tự động logout sau 1 giờ
         setTimeout(
           () => {
             logout();

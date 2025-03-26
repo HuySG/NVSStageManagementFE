@@ -2,6 +2,8 @@ import {
   AssigneeInfo,
   TaskUser,
   useGetTaskMilestoneQuery,
+  useGetTasksByUserQuery,
+  useGetUserInfoQuery,
   useGetUsersQuery,
   User,
   useUpdateTaskMutation,
@@ -11,7 +13,13 @@ import React, { useState } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Task as TaskType } from "@/state/api";
-import { EllipsisVertical, MessageSquareMore, Plus, X } from "lucide-react";
+import {
+  EllipsisVertical,
+  MessageSquareMore,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
 import EditTaskModal from "@/components/EditTaskModal";
@@ -25,7 +33,7 @@ const taskStatus = ["ToDo", "WorkInProgress", "UnderReview", "Completed"];
 const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
   const [editingTask, setEditingTask] = useState<TaskType | null>(null);
   const {
-    data: tasks,
+    data: tasksByMilestone,
     isLoading,
     error,
     refetch,
@@ -33,8 +41,28 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
     { projectID: id },
     { refetchOnMountOrArgChange: true },
   );
+
   console.log("id:", id);
 
+  const { data: currentUser } = useGetUserInfoQuery(undefined);
+  const userId = currentUser?.id;
+  console.log("Current User ID:", userId);
+
+  const { data: tasksByUser, error: userTasksError } = useGetTasksByUserQuery(
+    userId ?? "",
+    { skip: !userId, refetchOnMountOrArgChange: true },
+  );
+
+  const userRole = currentUser?.role?.roleName || "Staff"; // Lấy role của user, mặc định là Member
+  const tasks =
+    userRole === "Leader"
+      ? tasksByMilestone
+      : tasksByUser?.filter((task) => task.milestoneId === id) || [];
+  console.log("User Role:", userRole);
+  console.log("Tasks by Milestone:", tasksByMilestone);
+  console.log("Tasks by User:", tasksByUser);
+  console.log("User Role:", userRole);
+  console.log("Tasks:", tasks);
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
   const [updateTask] = useUpdateTaskMutation();
   const { data: users } = useGetUsersQuery(undefined);
@@ -71,6 +99,10 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
               moveTask={moveTask}
               setIsModaNewTasklOpen={setIsModaNewTasklOpen}
               onEditTask={setEditingTask}
+              onDeleteTask={async (taskId) => {
+                await updateTask({ taskID: taskId, status: "Deleted" });
+                refetch();
+              }}
             />
           ))}
         </div>
@@ -109,6 +141,7 @@ type TaskColumnProps = {
   moveTask: (taskId: string, toStatus: string) => void;
   setIsModaNewTasklOpen: (isOpen: boolean) => void;
   onEditTask: (task: TaskType) => void;
+  onDeleteTask: (taskId: string) => void;
 };
 const TaskColumn = ({
   status,
@@ -116,6 +149,7 @@ const TaskColumn = ({
   moveTask,
   setIsModaNewTasklOpen,
   onEditTask,
+  onDeleteTask,
 }: TaskColumnProps) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: "task",
@@ -169,7 +203,12 @@ const TaskColumn = ({
       {tasks
         .filter((task) => task.status === status)
         .map((task) => (
-          <Task key={task.taskID} task={task} onEditTask={onEditTask} />
+          <Task
+            key={task.taskID}
+            task={task}
+            onEditTask={onEditTask}
+            onDeleteTask={onDeleteTask}
+          />
         ))}
     </div>
   );
@@ -178,8 +217,9 @@ const TaskColumn = ({
 type TaskProps = {
   task: TaskType;
   onEditTask: (task: TaskType) => void;
+  onDeleteTask: (taskId: string) => void;
 };
-const Task = ({ task, onEditTask }: TaskProps) => {
+const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
   const [{ isDragging }, drop] = useDrag(() => ({
     type: "task",
     item: { id: task.taskID },
@@ -195,7 +235,7 @@ const Task = ({ task, onEditTask }: TaskProps) => {
   const formattedDueDate = task.endDate
     ? format(new Date(task.endDate), "P")
     : "";
-
+  const [showOptions, setShowOptions] = useState(false);
   // const numberOfComments = (task.comments && task.comments.length) || 0;
   const PriorityTag = ({ priority }: { priority: TaskType["priority"] }) => (
     <div
@@ -219,34 +259,13 @@ const Task = ({ task, onEditTask }: TaskProps) => {
       ref={(instance) => {
         drop(instance);
       }}
-      className={`mb-4 rounded-md bg-white shadow dark:bg-dark-secondary ${
+      className={`mb-4 rounded-lg bg-white shadow-md transition hover:shadow-lg dark:bg-dark-secondary ${
         isDragging ? "opacity-50" : "opacity-100"
       } cursor-pointer`}
       onClick={() => onEditTask(task)}
     >
-      {task.attachments && task.attachments.length > 0 && (
-        <div className="relative h-[200px] w-full overflow-hidden rounded-t-md">
-          <Image
-            key={String(task.attachments[0].attachmentId)}
-            src={`/${task.attachments[0].fileUrl}`}
-            alt={task.attachments[0].fileName}
-            fill
-            className="object-cover"
-            onError={(e) => {
-              // Fallback khi ảnh không load được
-              const target = e.target as HTMLImageElement;
-              target.src = "/placeholder-image.png";
-            }}
-          />
-          {task.attachments.length > 1 && (
-            <div className="absolute bottom-2 right-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
-              +{task.attachments.length - 1}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="p-4 md:p-6">
+      <div className="p-5 md:p-6">
+        {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex flex-1 flex-wrap items-center gap-2">
             {task.priority && <PriorityTag priority={task.priority} />}
@@ -254,36 +273,121 @@ const Task = ({ task, onEditTask }: TaskProps) => {
               {taskTagsSplit.map((tag) => (
                 <div
                   key={tag}
-                  className="rounded-full bg-blue-100 px-2 py-1 text-xs"
+                  className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold"
                 >
-                  {""}
                   {tag}
                 </div>
               ))}
             </div>
           </div>
-          <button className="flex h-6 w-4 flex-shrink-0 items-center justify-center dark:text-neutral-500">
-            <EllipsisVertical size={26} />
-          </button>
+          {/* Dropdown Menu */}
+          <div className="relative">
+            {/* Nút bấm mở menu */}
+            <button
+              className="text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptions(!showOptions);
+              }}
+            >
+              <EllipsisVertical size={26} />
+            </button>
+
+            {/* Hiển thị menu khi showOptions = true */}
+            {showOptions && (
+              <div className="absolute right-0 top-full mt-2 w-40 rounded-md border bg-white shadow-lg dark:border-dark-secondary dark:bg-dark-secondary">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteTask(task.taskID);
+                    setShowOptions(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-dark-tertiary"
+                >
+                  <Trash2 size={18} />
+                  Delete Task
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Task Title */}
         <div className="my-3 flex justify-between">
           <h4 className="text-md font-bold dark:text-white">{task.title}</h4>
-          {/* {typeof task.points === "number" && (
-            <div className="text-xs font-semibold dark:text-white">
-              {task.points} pts
-            </div>
-          )} */}
         </div>
-        <div className="text-xs text-gray-500 dark:text-neutral-500">
+
+        {/* Attachments */}
+        {task.attachments && task.attachments.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {task.attachments.map((attachment) => {
+              const isImage = /\.(jpeg|jpg|png|gif|webp)$/i.test(
+                attachment.fileUrl,
+              );
+              const isPDF = /\.pdf$/i.test(attachment.fileUrl);
+
+              return (
+                <div
+                  key={String(attachment.attachmentId)}
+                  className="rounded-lg border p-2 shadow transition hover:bg-gray-100 dark:hover:bg-dark-tertiary"
+                >
+                  {isImage ? (
+                    <div className="relative h-48 w-full overflow-hidden rounded-lg">
+                      <Image
+                        src={attachment.fileUrl}
+                        alt={attachment.fileName}
+                        layout="fill"
+                        objectFit="cover"
+                        className="rounded-lg transition-transform hover:scale-105"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder-image.png";
+                        }}
+                      />
+                    </div>
+                  ) : isPDF ? (
+                    <iframe
+                      src={attachment.fileUrl}
+                      className="h-48 w-full rounded border"
+                      title={attachment.fileName}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-lg bg-gray-200 p-2 dark:bg-dark-secondary">
+                      📄
+                      <a
+                        href={attachment.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 underline transition hover:text-blue-700"
+                      >
+                        {attachment.fileName}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Task Description */}
+        <p className="mt-2 text-sm text-gray-600 dark:text-neutral-500">
+          {task.description}
+        </p>
+
+        {/* Task Date */}
+        <div className="mt-2 text-xs text-gray-500 dark:text-neutral-500">
           {formattedStartDate && <span>{formattedStartDate} - </span>}
           {formattedDueDate && <span>{formattedDueDate}</span>}
         </div>
-        <p className="text-sm text-gray-600 dark:text-neutral-500">
-          {task.description}
-        </p>
+
+        {/* Divider */}
         <div className="mt-4 border-t border-gray-200 dark:border-stroke-dark" />
+
+        {/* Footer */}
         <div className="mt-3 flex items-center justify-between">
-          <div className="flex -space-x-[6px] overflow-hidden">
+          {/* Assignee */}
+          <div className="flex -space-x-2 overflow-hidden">
             {task?.assigneeInfo ? (
               <Image
                 key={task.assigneeInfo.id}
@@ -293,16 +397,18 @@ const Task = ({ task, onEditTask }: TaskProps) => {
                     : "/default-avatar.png"
                 }
                 alt={task.assigneeInfo.fullName || "User"}
-                width={30}
-                height={30}
-                className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
+                width={35}
+                height={35}
+                className="h-9 w-9 rounded-full border-2 border-white object-cover shadow-md dark:border-dark-secondary"
               />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-xs font-medium dark:border-dark-secondary dark:bg-dark-tertiary">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-xs font-medium shadow-md dark:border-dark-secondary dark:bg-dark-tertiary">
                 Null
               </div>
             )}
           </div>
+
+          {/* Comments */}
           <div className="flex items-center text-gray-500 dark:text-neutral-500">
             <MessageSquareMore size={20} />
             <span className="ml-1 text-sm dark:text-neutral-400">

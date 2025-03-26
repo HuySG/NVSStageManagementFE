@@ -55,7 +55,7 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
         (type: AssetType) => type.id === selectedAssetTypeId,
       );
       if (selectedType && selectedType.categories) {
-        setCategories(selectedType.categories);
+        setCategories([selectedType.categories]);
       } else {
         setCategories([]);
       }
@@ -131,29 +131,35 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 dark:bg-dark-secondary">
-        <h2 className="text-lg font-bold">Request Asset</h2>
+      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg dark:bg-dark-secondary">
+        <h2 className="mb-6 text-xl font-semibold text-gray-800 dark:text-white">
+          Request Asset
+        </h2>
 
         {/* Title */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium">Request Title</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Request Title
+          </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             placeholder="Brief title for your request"
           />
           {getErrorMessage("title")}
         </div>
 
         {/* Asset Type Selection */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium">Asset Type</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Asset Type
+          </label>
           <select
             value={selectedAssetTypeId}
             onChange={(e) => setSelectedAssetTypeId(e.target.value)}
-            className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             disabled={assetTypesLoading}
           >
             <option value="">Select Asset Type</option>
@@ -167,12 +173,14 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
         </div>
 
         {/* Category Selection */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium">Category</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Category
+          </label>
           <select
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             disabled={!selectedAssetTypeId || categories.length === 0}
           >
             <option value="">Select Category</option>
@@ -184,19 +192,21 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
           </select>
           {getErrorMessage("category")}
           {selectedAssetTypeId && categories.length === 0 && (
-            <p className="mt-1 text-sm text-amber-500">
+            <p className="mt-2 text-sm text-amber-500">
               No categories available for this asset type
             </p>
           )}
         </div>
 
         {/* Asset Selection */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium">Asset</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Asset
+          </label>
           <select
             value={selectedAssetId}
             onChange={(e) => setSelectedAssetId(e.target.value)}
-            className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             disabled={assetsLoading || !selectedCategoryId}
           >
             <option value="">Select Asset</option>
@@ -208,73 +218,81 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
           </select>
           {getErrorMessage("asset")}
           {selectedCategoryId && assets.length === 0 && !assetsLoading && (
-            <p className="mt-1 text-sm text-amber-500">
+            <p className="mt-2 text-sm text-amber-500">
               No assets available in this category
             </p>
           )}
         </div>
 
         {/* Quantity */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium">Quantity</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Quantity
+          </label>
           <input
             type="number"
             value={quantity}
             min="1"
             onChange={(e) => setQuantity(Number(e.target.value))}
-            className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
           />
           {getErrorMessage("quantity")}
         </div>
 
         {/* Description */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium">Description</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Description
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="h-20 w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             placeholder="Explain why you need this asset"
           />
           {getErrorMessage("description")}
         </div>
 
         {/* Time Range */}
-        <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium">Start Time</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Start Time
+            </label>
             <input
               type="datetime-local"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             />
             {getErrorMessage("startTime")}
           </div>
           <div>
-            <label className="block text-sm font-medium">End Time</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              End Time
+            </label>
             <input
               type="datetime-local"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full rounded border p-2 dark:bg-dark-tertiary dark:text-white"
+              className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
             />
             {getErrorMessage("endTime")}
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-4">
           <button
             onClick={onClose}
-            className="rounded bg-gray-400 px-4 py-2 text-white hover:bg-gray-500"
+            className="rounded-lg bg-gray-400 px-6 py-2 text-white hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600"
+            className="rounded-lg bg-green-500 px-6 py-2 text-white hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
           >
             {isSubmitting ? "Submitting..." : "Submit Request"}
           </button>
@@ -282,7 +300,7 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
 
         {/* Error Message */}
         {error && (
-          <p className="mt-2 text-red-500">
+          <p className="mt-3 text-sm text-red-500">
             {typeof error === "object" && "data" in error
               ? (error.data as any)?.message || "Error submitting request!"
               : "Error submitting request!"}
