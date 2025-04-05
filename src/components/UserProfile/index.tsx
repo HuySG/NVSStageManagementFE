@@ -34,7 +34,7 @@ const UserProfile = () => {
               alt="User Avatar"
               width={36}
               height={36}
-              className="rounded-full"
+              className="max-h-11 rounded-full object-cover"
             />
             <div>
               {/* Tên người dùng */}

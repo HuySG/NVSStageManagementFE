@@ -1,7 +1,7 @@
 "use client";
 import Modal from "@/components/Modal";
 import { useCreateMilestoneMutation } from "@/state/api";
-import { formatISO } from "date-fns";
+import { format } from "date-fns";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -30,12 +30,8 @@ const ModalNewProject = ({ isOpen, onClose, id = null }: Props) => {
       return;
     }
 
-    const formattedStartDate = formatISO(new Date(startDate), {
-      representation: "complete",
-    });
-    const formattedEndDate = formatISO(new Date(endDate), {
-      representation: "complete",
-    });
+    const formattedStartDate = format(new Date(startDate), "yyyy-MM-dd");
+    const formattedEndDate = format(new Date(endDate), "yyyy-MM-dd");
 
     try {
       const response = await createProject({

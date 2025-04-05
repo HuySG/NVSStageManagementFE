@@ -9,9 +9,11 @@ import { Task as TaskType } from "@/state/api";
 import { useState } from "react";
 import { format } from "date-fns";
 import { X } from "lucide-react";
-import RequestAssetModal from "../RequestAssetModal/RequestAssetModal";
+import RequestAssetModal from "../RequestAssetModal";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebaseConfig";
+import AssetRequestSelector from "../AssetRequestSelector";
+import { toast } from "react-toastify";
 
 type EditTaskModalProps = {
   task: TaskType;
@@ -88,7 +90,10 @@ const EditTaskModal = ({
   };
 
   const handleUploadFile = async () => {
-    if (!newAttachment) return;
+    if (!newAttachment) {
+      toast.warning("Please select a file to upload.");
+      return;
+    }
 
     const storageRef = ref(storage, `attachments/${newAttachment.name}`);
     const uploadTask = uploadBytesResumable(storageRef, newAttachment);
@@ -102,6 +107,7 @@ const EditTaskModal = ({
       },
       (error) => {
         console.error("Upload failed:", error);
+        toast.error("File upload failed. Please try again!");
       },
       async () => {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -115,43 +121,51 @@ const EditTaskModal = ({
         };
 
         try {
-          // Gửi metadata file lên server bằng RTK Query
           await uploadFileMetadata(newFile).unwrap();
-          console.log("File metadata saved to DB");
+          toast.success("File uploaded successfully!");
 
-          // Cập nhật danh sách attachment hiển thị
           setAttachments((prev) => [
             ...prev,
             { ...newFile, attachmentId: crypto.randomUUID() },
           ]);
         } catch (error) {
           console.error("Error saving attachment metadata:", error);
+          toast.error("Failed to save file metadata.");
         }
 
-        setNewAttachment(null); // Reset input file
+        setNewAttachment(null);
       },
     );
   };
+
   const handleRemoveAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((file) => file.attachmentId !== id));
   };
 
   const handleSave = () => {
-    onSave({
-      title,
-      description,
-      priority,
-      startDate: startDate ? new Date(startDate).toISOString() : undefined,
-      endDate: endDate ? new Date(endDate).toISOString() : undefined,
-      tag: tags,
-      status,
-      watchers: watchers,
-      assigneeID: assigneeinfo?.id || "", // Lưu người được giao task
-      assigneeInfo: assigneeinfo, // Lưu người được giao task
-      milestoneId,
-      attachments,
-      updateDate: new Date().toISOString(), // Tự động cập nhật ngày chỉnh sửa
-    });
+    try {
+      onSave({
+        title,
+        description,
+        priority,
+        startDate: startDate ? new Date(startDate).toISOString() : undefined,
+        endDate: endDate ? new Date(endDate).toISOString() : undefined,
+        tag: tags,
+        status,
+        watchers: watchers,
+        assigneeID: assigneeinfo?.id || "",
+        assigneeInfo: assigneeinfo,
+        milestoneId,
+        attachments,
+        updateDate: new Date().toISOString(),
+      });
+
+      toast.success("Task updated successfully!");
+      onClose(); // Đóng modal sau khi lưu thành công
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast.error("Failed to update task. Please try again.");
+    }
   };
 
   const isChanged =
@@ -171,6 +185,7 @@ const EditTaskModal = ({
       (user, index) => user.userID !== task.watchers?.[index]?.userID,
     );
   assigneeinfo?.id !== task.assigneeInfo?.id; // Không còn lỗi nul
+
   const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
 
   return (
@@ -430,7 +445,7 @@ const EditTaskModal = ({
 
         {/* Hiển thị Modal Request Asset khi mở */}
         {isRequestAssetOpen && (
-          <RequestAssetModal
+          <AssetRequestSelector
             taskId={task.taskID}
             onClose={() => setIsRequestAssetOpen(false)}
           />

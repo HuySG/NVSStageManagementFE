@@ -10,6 +10,7 @@ import {
   Briefcase,
   ChevronDown,
   ChevronUp,
+  FileChartPie,
   Home,
   Layers3,
   LockIcon,
@@ -91,7 +92,11 @@ const Sidebarmember = () => {
           <SidebarLink icon={Settings} label="Settings" href="/settings" />
           <SidebarLink icon={User} label="Users" href="/users" />
           <SidebarLink icon={Users} label="Teams" href="/teams" />
-          <SidebarLink icon={Workflow} label="Request Assets" href="/request" />
+          <SidebarLink
+            icon={FileChartPie}
+            label="Request Status"
+            href="/requestApprove"
+          />
         </nav>
         <button
           onClick={() => setShowProjects((prev) => !prev)}

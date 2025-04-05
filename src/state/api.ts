@@ -148,7 +148,7 @@ export interface AssetCategory {
 export interface AssetType {
   id: string;
   name: string;
-  categories: AssetCategory; // Một kiểu tài sản chỉ thuộc một loại tài sản
+  categories: AssetCategory[]; // Một kiểu tài sản chỉ thuộc một loại tài sản
 }
 
 // 📌 Định nghĩa tài sản
@@ -180,6 +180,7 @@ export interface AssetRequest {
   task: Task;
   status: string;
   requesterInfo: RequesterInfo | null;
+  projectInfo: Project;
 }
 // 📌 Định nghĩa người yêu cầu
 export interface RequesterInfo {
@@ -196,6 +197,14 @@ export interface Attachment {
   taskId: string;
   uploadedById: string; // Chỉnh từ String thành string
 }
+
+export type Booking = {
+  id: string;
+  startTime: string;
+  endTime: string;
+  assetID: string;
+};
+
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -308,6 +317,11 @@ export const api = createApi({
       transformResponse: (response: { result: User[] }) => response.result, // Chỉ lấy result
       providesTags: ["Users"],
     }),
+    getUserByDepartment: build.query<User[], string>({
+      query: (departmentId) => `user/department?Id=${departmentId}`,
+      providesTags: ["Users"],
+    }),
+
     getProjectTasks: build.query<ProjectTask[], void>({
       query: () => "projects/project-task",
       providesTags: ["ProjectTasks"],
@@ -316,6 +330,10 @@ export const api = createApi({
     // 📌 Thêm API để tạo yêu cầu tài sản
     getRequestAssets: build.query<AssetRequest[], void>({
       query: () => "request-asset",
+      providesTags: ["AssetRequests"],
+    }),
+    getAssetBookings: build.query({
+      query: (assetID) => `request-asset/by-asset?assetId=${assetID}`,
       providesTags: ["AssetRequests"],
     }),
 
@@ -327,6 +345,31 @@ export const api = createApi({
       }),
       invalidatesTags: ["AssetRequests"], // Xóa cache để cập nhật dữ liệu mới
     }),
+    // 📌 Tạo yêu cầu tài sản theo Booking
+    createAssetRequestBooking: build.mutation<
+      AssetRequest,
+      Partial<AssetRequest>
+    >({
+      query: (assetRequest) => ({
+        url: "request-asset/booking", // Đường dẫn cho yêu cầu tài sản theo Booking
+        method: "POST",
+        body: assetRequest,
+      }),
+      invalidatesTags: ["AssetRequests"], // Xóa cache để cập nhật dữ liệu mới
+    }),
+
+    // 📌 Tạo yêu cầu tài sản theo danh mục
+    createAssetRequestCategory: build.mutation<
+      AssetRequest,
+      Partial<AssetRequest>
+    >({
+      query: (assetRequest) => ({
+        url: "request-asset/category", // Đường dẫn cho yêu cầu tài sản theo danh mục
+        method: "POST",
+        body: assetRequest,
+      }),
+      invalidatesTags: ["AssetRequests"], // Xóa cache để cập nhật dữ liệu mới
+    }),
     getAssets: build.query<Asset[], { categoryId: string }>({
       query: ({ categoryId }) => ({
         url: `asset?categoryId=${categoryId}`,
@@ -335,7 +378,13 @@ export const api = createApi({
       providesTags: (result, error, { categoryId }) =>
         result ? [{ type: "Assets", id: categoryId }] : [{ type: "Assets" }],
     }),
-
+    getAllAsset: build.query<Asset[], void>({
+      query: () => ({
+        url: "asset",
+        method: "GET",
+      }),
+      providesTags: ["Assets"],
+    }),
     getAssetTypes: build.query<AssetType[], void>({
       query: () => ({
         url: "asset-types",
@@ -345,11 +394,24 @@ export const api = createApi({
     }),
     getRequestAssetByDepartment: build.query<AssetRequest[], string>({
       query: (departmentId) => ({
-        url: `request-asset/leader/department?Id=${departmentId}`,
+        url: `request-asset/leader/department?id=${departmentId}`,
         method: "GET",
       }),
       providesTags: ["AssetRequests"],
     }),
+
+    updateAssetStatus: build.mutation<
+      void,
+      { requestId: string; status: string }
+    >({
+      query: ({ requestId, status }) => ({
+        url: "request-asset/status",
+        method: "PUT",
+        body: { requestId, status },
+      }),
+      invalidatesTags: ["AssetRequests"],
+    }),
+
     // 📌 Thêm API để lấy danh sách milestone theo project
     getMilestonesByProject: build.query<Milestone[], { projectID: string }>({
       query: ({ projectID }) => `milestones/project/${projectID}`,
@@ -418,18 +480,30 @@ export const {
   useGetUserInfoQuery,
   //getUsers
   useGetUsersQuery,
+  //getUserByDepartment
+  useGetUserByDepartmentQuery,
   //getProjectTasks
   useGetProjectTasksQuery,
   //getRequestAssets
   useGetRequestAssetsQuery,
+  //getAssetBookings
+  useGetAssetBookingsQuery,
   //createAssetRequest
   useCreateAssetRequestMutation,
+  //createAssetRequestBooking
+  useCreateAssetRequestBookingMutation,
+  //createAssetRequestCategory
+  useCreateAssetRequestCategoryMutation,
   //getAssets
   useGetAssetsQuery,
+  //getAllAsset
+  useGetAllAssetQuery,
   //getAssetTypes
   useGetAssetTypesQuery,
   //getRequestAssetByDepartment
   useGetRequestAssetByDepartmentQuery,
+  //updateAssetStatus
+  useUpdateAssetStatusMutation,
   //getMilestonesByProject
   useGetMilestonesByProjectQuery,
   //getTaskComments

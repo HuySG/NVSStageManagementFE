@@ -13,6 +13,7 @@ import {
   Briefcase,
   ChevronDown,
   ChevronUp,
+  FileChartPie,
   Home,
   Layers3,
   LockIcon,
@@ -88,13 +89,40 @@ const Sidebar = () => {
         </div>
         {/* Navbar Links */}
         <nav className="z-10 w-full">
-          <SidebarLink icon={Home} label="Home" href="/" />
-          <SidebarLink icon={Briefcase} label="TimeLine" href="/timeline" />
-          <SidebarLink icon={Search} label="Search" href="/search" />
-          <SidebarLink icon={Settings} label="Settings" href="/settings" />
-          <SidebarLink icon={User} label="Users" href="/users" />
-          <SidebarLink icon={Users} label="Teams" href="/teams" />
-          <SidebarLink icon={Workflow} label="Request Assets" href="/request" />
+          {user.role.roleName === "Leader" && (
+            <>
+              <SidebarLink icon={Home} label="Home" href="/" />
+              <SidebarLink icon={Briefcase} label="TimeLine" href="/timeline" />
+              <SidebarLink icon={Search} label="Search" href="/search" />
+              <SidebarLink icon={Settings} label="Settings" href="/settings" />
+              <SidebarLink icon={User} label="Users" href="/users" />
+              <SidebarLink icon={Users} label="Teams" href="/teams" />
+              <SidebarLink
+                icon={Workflow}
+                label="Request Assets"
+                href="/request"
+              />
+              <SidebarLink
+                icon={FileChartPie}
+                label="Request Status"
+                href="/requestApprove"
+              />
+            </>
+          )}
+          {user.role.roleName === "Staff" && (
+            <>
+              <SidebarLink icon={Home} label="Home" href="/" />
+              <SidebarLink icon={Search} label="Search" href="/search" />
+              <SidebarLink icon={Settings} label="Settings" href="/settings" />
+              <SidebarLink icon={User} label="Users" href="/users" />
+              <SidebarLink icon={Users} label="Teams" href="/teams" />
+              <SidebarLink
+                icon={FileChartPie}
+                label="Request Status"
+                href="/requestApprove"
+              />
+            </>
+          )}
         </nav>
         <button
           onClick={() => setShowProjects((prev) => !prev)}

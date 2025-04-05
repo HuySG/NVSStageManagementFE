@@ -2,159 +2,210 @@
 import { useState } from "react";
 import {
   AssetRequest,
-  useGetProjectsDepartmentQuery,
   useGetRequestAssetByDepartmentQuery,
   useGetUserInfoQuery,
+  useUpdateAssetStatusMutation,
 } from "@/state/api";
 import { useAppSelector } from "@/app/redux";
-import { DataGrid } from "@mui/x-data-grid";
-import { Button } from "@mui/material";
-import { GridRenderCellParams } from "@mui/x-data-grid";
+import {
+  Button,
+  CircularProgress,
+  IconButton,
+  Menu,
+  MenuItem,
+} from "@mui/material";
+import { toast } from "react-toastify";
+import Link from "next/link";
+import { MoreVerticalIcon } from "lucide-react";
 
 const LeaderAssetApproval = () => {
   const { data: user } = useGetUserInfoQuery();
   const departmentId = user?.department?.id ?? "";
-
-  const {
-    data: projects,
-    isLoading: isProjectsLoading,
-    error: projectsError,
-  } = useGetProjectsDepartmentQuery(departmentId, {
-    skip: !departmentId,
-  });
-
   const {
     data: requests = [],
     isLoading,
     error,
   } = useGetRequestAssetByDepartmentQuery(departmentId);
+  const [updateRequestStatus] = useUpdateAssetStatusMutation();
+  const [loadingRequestId, setLoadingRequestId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AssetRequest | null>(
     null,
   );
+  const [anchorEl, setAnchorEl] = useState<{
+    [key: string]: HTMLElement | null;
+  }>({});
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading asset requests</div>;
-  console.log("Asset Requests Data:", requests);
+  if (isLoading) return <div className="py-4 text-center">Loading...</div>;
+  if (error)
+    return (
+      <div className="py-4 text-center text-red-500">
+        Error loading asset requests
+      </div>
+    );
+  // 🚫 Chặn Staff không vào được trang
+  if (user?.role?.roleName === "Staff") {
+    return (
+      <div className="py-10 text-center text-xl font-semibold text-red-500">
+        You are not authorized to access this page.
+      </div>
+    );
+  }
+  const handleApprove = async (requestId: string) => {
+    setLoadingRequestId(requestId);
+    try {
+      await updateRequestStatus({ requestId, status: "LEADER_APPROVED" });
+      toast.success("Request Approved Successfully!");
+    } catch (error) {
+      toast.error("Failed to approve request.");
+    }
+    setLoadingRequestId(null);
+  };
 
-  const columns = [
-    {
-      field: "assetName",
-      headerName: "Asset",
-      flex: 1,
-      valueGetter: (params: any) => params?.row?.asset?.assetName ?? "N/A",
-    },
-    {
-      field: "assetType",
-      headerName: "Type",
-      flex: 1,
-      valueGetter: (params: any) =>
-        params?.row?.asset?.assetType?.name ?? "N/A",
-    },
-    { field: "quantity", headerName: "Quantity", flex: 1 },
-    { field: "status", headerName: "Status", flex: 1 },
-    {
-      field: "actions",
-      headerName: "Actions",
-      flex: 1,
-      renderCell: (params: GridRenderCellParams) =>
-        params.row ? (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setSelectedRequest(params.row)}
-          >
-            View
-          </Button>
-        ) : null,
-    },
-  ];
+  const handleReject = async (requestId: string) => {
+    setLoadingRequestId(requestId);
+    try {
+      await updateRequestStatus({ requestId, status: "REJECTED" });
+      toast.error("Request Rejected!");
+    } catch (error) {
+      toast.error("Failed to reject request.");
+    }
+    setLoadingRequestId(null);
+  };
+
+  const handleOpenMenu = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    requestId: string,
+  ) => {
+    setAnchorEl((prev) => ({ ...prev, [requestId]: event.currentTarget }));
+  };
+
+  const handleCloseMenu = (requestId: string) => {
+    setAnchorEl((prev) => ({ ...prev, [requestId]: null }));
+  };
+  const statusMapping: Record<string, string> = {
+    PENDING_LEADER: "Pending Leader Approval",
+    LEADER_APPROVED: "Leader Approved, Pending AM",
+    LEADER_REJECTED: "Leader Rejected",
+    PENDING_AM: "Pending Asset Manager Approval",
+    AM_APPROVED: "Asset Manager Approved",
+    REJECTED: "Rejected",
+    CANCELLED: "Cancelled",
+  };
+  const pendingRequests = requests.filter(
+    (request) => request.status === "PENDING_LEADER",
+  );
 
   return (
-    <div className="min-h-screen p-8 dark:bg-dark-secondary dark:text-white">
-      <h2 className="text-2xl font-bold">Welcome back!</h2>
-      <p className="mb-4">Here’s a list of asset requests!</p>
-      <div className="overflow-hidden rounded-lg bg-white">
-        <DataGrid
-          rows={requests ?? []} // Đảm bảo rows không bị undefined
-          columns={columns}
-          autoHeight
-          getRowId={(row) => row?.requestId ?? ""}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 5 },
-            },
-          }}
-          pageSizeOptions={[5, 10, 20]}
-        />
-      </div>
+    <div
+      className={`container mx-auto p-6 ${isDarkMode ? "bg-gray-900 text-white" : "bg-white text-black"}`}
+    >
+      <h1 className="mb-6 text-center text-3xl font-bold">
+        Asset Request List
+      </h1>
+      {pendingRequests.length === 0 ? (
+        <div className="text-center text-gray-500">
+          No pending asset requests available
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg shadow-lg">
+          <table className="w-full border-collapse bg-white text-sm shadow-md dark:bg-gray-800">
+            <thead>
+              <tr className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                <th className="border px-4 py-3 text-left">Description</th>
+                <th className="border px-4 py-3 text-left">Status</th>
+                <th className="border px-4 py-3 text-left">Creation Date</th>
+                <th className="border px-4 py-3 text-left">Time Period</th>
+                <th className="border px-4 py-3 text-left">Task</th>
+                <th className="border px-4 py-3 text-left">Requester</th>
+                <th className="border px-4 py-3 text-left">Asset</th>
+                <th className="border px-4 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingRequests.map((request) => (
+                <tr
+                  key={request.requestId}
+                  className="border hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <td className="border px-4 py-3">{request.description}</td>
 
-      {selectedRequest && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-1/3 rounded-lg bg-white p-6 shadow-lg">
-            <h3 className="mb-2 text-xl font-bold">
-              {selectedRequest.asset?.assetName || "No Asset"}
-            </h3>
-            <p>
-              <strong>Type:</strong>{" "}
-              {selectedRequest.asset?.assetType?.name || "N/A"}
-            </p>
-            <p>
-              <strong>Quantity:</strong> {selectedRequest.quantity}
-            </p>
-            <p>
-              <strong>Status:</strong> {selectedRequest.status}
-            </p>
-            <p>
-              <strong>Description:</strong> {selectedRequest.description}
-            </p>
+                  <td
+                    className={`borde bg-opacity-70 px-4 py-3 text-black ${
+                      request.status === "PENDING_LEADER"
+                        ? "bg-yellow-500"
+                        : request.status === "LEADER_APPROVED"
+                          ? "bg-blue-500"
+                          : request.status === "AM_APPROVED"
+                            ? "bg-green-500"
+                            : "bg-red-500"
+                    }`}
+                  >
+                    {statusMapping[request.status]}
+                  </td>
 
-            {/* Thông tin người yêu cầu */}
-            {selectedRequest.requesterInfo && (
-              <>
-                <h4 className="mt-4 text-lg font-bold">Requester Info:</h4>
-                <p>
-                  <strong>Name:</strong>{" "}
-                  {selectedRequest.requesterInfo.fullName}
-                </p>
-                <p>
-                  <strong>Email:</strong> {selectedRequest.requesterInfo.email}
-                </p>
-                <p>
-                  <strong>Phone:</strong>{" "}
-                  {selectedRequest.requesterInfo.phoneNumber}
-                </p>
-              </>
-            )}
-
-            {/* Thông tin Task */}
-            <h4 className="mt-4 text-lg font-bold">Task Info:</h4>
-            <p>
-              <strong>Title:</strong> {selectedRequest.task.title}
-            </p>
-            <p>
-              <strong>Description:</strong> {selectedRequest.task.description}
-            </p>
-            <p>
-              <strong>Status:</strong> {selectedRequest.task.status}
-            </p>
-            <p>
-              <strong>Start Date:</strong> {selectedRequest.task.startDate}
-            </p>
-            <p>
-              <strong>End Date:</strong> {selectedRequest.task.endDate}
-            </p>
-
-            <div className="mt-4 flex justify-end">
-              <Button
-                onClick={() => setSelectedRequest(null)}
-                variant="contained"
-                color="secondary"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
+                  <td className="border px-4 py-3">
+                    {new Date(request.startTime).toLocaleDateString()}
+                  </td>
+                  <td className="border px-4 py-3">
+                    <p>
+                      <strong>Start:</strong>{" "}
+                      {new Date(request.startTime).toLocaleDateString()}
+                    </p>
+                    <p>
+                      <strong>End:</strong>{" "}
+                      {new Date(request.endTime).toLocaleDateString()}
+                    </p>
+                  </td>
+                  <td className="border px-4 py-3">
+                    {request.task ? (
+                      <Link
+                        href={`/Projects/${request.projectInfo.projectID}/milestones/${request.task.milestoneId}?taskId=${request.task.taskID}`}
+                        className="text-blue-500 hover:underline"
+                      >
+                        {request.task.title}
+                      </Link>
+                    ) : (
+                      "No Task"
+                    )}
+                  </td>
+                  <td className="border px-4 py-3">
+                    {request.requesterInfo?.fullName ?? "No requester info"}
+                  </td>
+                  <td className="border px-4 py-3">
+                    {request.asset?.assetName ?? "No Asset"}
+                  </td>
+                  <td className="flex items-center gap-2 px-4 py-6">
+                    <IconButton
+                      onClick={(event) =>
+                        handleOpenMenu(event, request.requestId)
+                      }
+                    >
+                      <MoreVerticalIcon />
+                    </IconButton>
+                    <Menu
+                      anchorEl={anchorEl[request.requestId]}
+                      open={Boolean(anchorEl[request.requestId])}
+                      onClose={() => handleCloseMenu(request.requestId)}
+                    >
+                      <MenuItem
+                        onClick={() => handleApprove(request.requestId)}
+                        disabled={loadingRequestId === request.requestId}
+                      >
+                        Approve
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => handleReject(request.requestId)}
+                        disabled={loadingRequestId === request.requestId}
+                      >
+                        Reject
+                      </MenuItem>
+                    </Menu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

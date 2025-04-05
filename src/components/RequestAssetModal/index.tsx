@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Asset,
   AssetCategory,
@@ -39,9 +39,15 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
   const { data: assets = [], isLoading: assetsLoading } = useGetAssetsQuery(
     selectedCategoryId
       ? { categoryId: selectedCategoryId }
-      : (undefined as never),
-    { skip: !selectedCategoryId },
+      : { categoryId: "" },
+    { skip: !selectedCategoryId }, // Chỉ gọi API nếu có categoryId
   );
+
+  // Lọc assets theo `selectedAssetTypeId` và `selectedCategoryId`
+  const filteredAssets = useMemo(() => {
+    return assets.filter((asset) => asset.assetType.id === selectedAssetTypeId);
+  }, [assets, selectedAssetTypeId]);
+
   console.log("asset", assets);
 
   // Gọi API bằng RTK Query để tạo yêu cầu
@@ -54,11 +60,12 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
       const selectedType = assetTypes.find(
         (type: AssetType) => type.id === selectedAssetTypeId,
       );
-      if (selectedType && selectedType.categories) {
-        setCategories([selectedType.categories]);
+      if (selectedType) {
+        setCategories(selectedType.categories ?? []); // ✅ Đảm bảo mảng
       } else {
         setCategories([]);
       }
+
       // Reset các lựa chọn phụ thuộc
       setSelectedCategoryId("");
       setSelectedAssetId("");
@@ -207,10 +214,10 @@ const RequestAssetModal = ({ taskId, onClose }: RequestAssetModalProps) => {
             value={selectedAssetId}
             onChange={(e) => setSelectedAssetId(e.target.value)}
             className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
-            disabled={assetsLoading || !selectedCategoryId}
+            disabled={assetsLoading || filteredAssets.length === 0}
           >
             <option value="">Select Asset</option>
-            {assets.map((asset: Asset) => (
+            {filteredAssets.map((asset: Asset) => (
               <option key={asset.assetID} value={asset.assetID}>
                 {asset.assetName}
               </option>
