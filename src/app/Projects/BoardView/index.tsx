@@ -1,6 +1,8 @@
 import {
   AssigneeInfo,
   TaskUser,
+  useArchiveTaskMutation,
+  useGetRequestsByTaskQuery,
   useGetTaskMilestoneQuery,
   useGetTasksByUserQuery,
   useGetUserByDepartmentQuery,
@@ -20,11 +22,13 @@ import {
   Plus,
   Trash2,
   X,
+  Archive,
 } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
 import EditTaskModal from "@/components/EditTaskModal";
 import { useSearchParams } from "next/navigation";
+import RequestListModal from "../ListRequestModal/RequestListModal";
 
 type BoardProps = {
   id: string;
@@ -34,6 +38,23 @@ const taskStatus = ["ToDo", "WorkInProgress", "UnderReview", "Completed"];
 
 const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
   const [editingTask, setEditingTask] = useState<TaskType | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const { data: taskRequests, isLoading: isLoadingRequests } = useGetRequestsByTaskQuery(
+    selectedTaskId ?? "",
+    { skip: !selectedTaskId } // Chỉ fetch khi có taskId
+  );
+
+  const handleTaskClick = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsRequestModalOpen(true); // Mở modal
+  };
+
+  const closeRequestModal = () => {
+    setIsRequestModalOpen(false);
+    setSelectedTaskId(null); // Reset taskId
+  };
+
   const {
     data: tasksByMilestone,
     isLoading,
@@ -100,7 +121,11 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
               tasks={tasks?.filter((task) => task.status === status) || []}
               moveTask={moveTask}
               setIsModaNewTasklOpen={setIsModaNewTasklOpen}
-              onEditTask={setEditingTask}
+              onEditTask={(task) => {
+                setEditingTask(task);
+                handleTaskClick(task.taskID);
+              }}
+          
               onDeleteTask={async (taskId) => {
                 await updateTask({ taskID: taskId, status: "Deleted" });
                 refetch();
@@ -110,30 +135,44 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
         </div>
       </DndProvider>
 
-      {editingTask && (
-        <EditTaskModal
-          task={editingTask}
-          users={
-            users
-              ? users.map((user) => ({
-                  id: user.id,
-                  fullName: user.fullName || "",
-                  dayOfBirth: user.dayOfBirth || "",
-                  email: user.email,
-                  password: user.password,
-                  department: user.department,
-                  pictureProfile: user.pictureProfile || "",
-                  createDate: user.createDate,
-                  role: user.role || { id: 0, roleName: "Unknown" },
-                  status: user.status,
-                  taskUsers: user.TaskUser || [],
-                }))
-              : []
-          } // Chuyển đổi User[] thành AssigneeInfo[]
-          onClose={() => setEditingTask(null)}
-          onSave={handleTaskEdit}
+    {editingTask && (
+  <div className="fixed inset-0 z-40 flex items-start justify-between backdrop-blur-sm">
+    {/* Modal Task Detail */}
+    <div className="flex-shrink-0">
+    <EditTaskModal
+      task={editingTask}
+      users={
+        users
+          ? users.map((user) => ({
+              id: user.id,
+              fullName: user.fullName || "",
+              dayOfBirth: user.dayOfBirth || "",
+              email: user.email,
+              password: user.password,
+              department: user.department,
+              pictureProfile: user.pictureProfile || "",
+              createDate: user.createDate,
+              role: user.role || { id: 0, roleName: "Unknown" },
+              status: user.status,
+              taskUsers: user.TaskUser || [],
+            }))
+          : []
+      }
+      onClose={() => setEditingTask(null)}
+      onSave={handleTaskEdit}
+    />
+ </div>
+    {/* Modal List Request */}
+    {isRequestModalOpen && (
+      <div className="flex-shrink-0 mt-16 mr-12">
+        <RequestListModal
+          requests={taskRequests || []}
+          onClose={closeRequestModal}
         />
-      )}
+      </div>
+    )}
+  </div>
+)}
     </>
   );
 };
@@ -229,6 +268,10 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
       isDragging: !!monitor.isDragging(),
     }),
   }));
+  const { data: taskRequests, isLoading, error } = useGetRequestsByTaskQuery(task.taskID);
+ 
+  const hasRequests = taskRequests && taskRequests.length > 0;
+  
   const taskTagsSplit = task.tag ? task.tag.split(",") : [];
   const formattedStartDate = task.startDate
     ? format(new Date(task.startDate), "P")
@@ -238,6 +281,22 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
     ? format(new Date(task.endDate), "P")
     : "";
   const [showOptions, setShowOptions] = useState(false);
+  const [archiveTask] = useArchiveTaskMutation();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const handleArchiveTask = async (taskId: string) => {
+    try {
+      await archiveTask({ taskId }).unwrap();
+      setErrorMessage(null); 
+      alert("Task archived successfully!");
+    } catch (error: any) {
+      console.error("Error archiving task:", error);
+      if (error.data?.error) {
+        setErrorMessage(error.data.error); 
+      } else {
+        setErrorMessage("An unexpected error occurred.");
+      }
+    }
+  };
   const searchParams = useSearchParams();
 
   const taskRef = useRef<HTMLDivElement | null>(null); // 🔹 Xác định kiểu dữ liệu
@@ -276,6 +335,20 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
       className={`mb-4 rounded-lg bg-white shadow-md transition hover:shadow-lg dark:bg-dark-secondary ${
         isDragging ? "opacity-50" : "opacity-100"
       } cursor-pointer`}
+      style={
+        hasRequests
+          ? {
+              border: "1px solid rgba(255, 77, 79, 0.6)", // Viền đỏ nhẹ hơn
+              boxShadow: "0 2px 6px rgba(255, 77, 79, 0.2)", // Hiệu ứng bóng mờ nhẹ
+              borderRadius: "10px", // Bo góc mềm mại hơn
+              transition: "border-color 0.3s ease, box-shadow 0.3s ease", // Hiệu ứng mượt khi thay đổi
+            }
+          : {
+              border: "1px solid rgba(0, 0, 0, 0.1)", // Viền mặc định nhẹ
+              borderRadius: "10px", // Bo góc mềm mại hơn
+              transition: "border-color 0.3s ease, box-shadow 0.3s ease", // Hiệu ứng mượt khi thay đổi
+            }
+      }
       onClick={() => onEditTask(task)}
     >
       {" "}
@@ -327,6 +400,17 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
                     <Trash2 size={18} />
                     Delete Task
                   </button>
+                  <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  archiveTask({ taskId: task.taskID });
+                  setShowOptions(false);
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2 text-blue-500 hover:bg-gray-100 dark:hover:bg-dark-tertiary"
+              >
+                <Archive size={18} />
+                Archive Task
+              </button>
                 </div>
               )}
             </div>
@@ -443,3 +527,4 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
 };
 
 export default BoardView;
+

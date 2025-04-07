@@ -340,7 +340,10 @@ export const api = createApi({
       query: (assetID) => `request-asset/by-asset?assetId=${assetID}`,
       providesTags: ["AssetRequests"],
     }),
-
+    // 📌 Thêm API để lấy yêu cầu tài sản theo taskId
+    getRequestsByTask: build.query<any[], string>({
+      query: (taskId) => `request-asset/by-task/${taskId}`,
+    }),
     createAssetRequest: build.mutation<AssetRequest, Partial<AssetRequest>>({
       query: (assetRequest) => ({
         url: "request-asset",
@@ -434,6 +437,13 @@ export const api = createApi({
             }))
           : [{ type: "Comments" as const }],
     }),
+    archiveTask: build.mutation<void, { taskId: string }>({
+      query: ({ taskId }) => ({
+        url: `tasks/archive/taskId?id=${taskId}`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, { taskId }) => [{ type: "Tasks", id: taskId }],
+    }),
     postTaskComment: build.mutation<Comment, Partial<Comment>>({
       query: (commentData) => ({
         url: "comment",
@@ -516,4 +526,8 @@ export const {
   usePostTaskCommentMutation,
   //uploadFileMetadata
   useUploadFileMetadataMutation,
+  //archiveTask
+  useArchiveTaskMutation,
+  //getRequestByTask
+  useGetRequestsByTaskQuery,
 } = api;
