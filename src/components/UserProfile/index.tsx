@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import { LogOut, Settings, Bell, CreditCard, User } from "lucide-react";
-import { AuthContext } from "@/app/AuthProvider";
 import { useContext } from "react";
+import { AuthContext } from "@/app/authProvider";
 
 const UserProfile = () => {
   const auth = useContext(AuthContext);

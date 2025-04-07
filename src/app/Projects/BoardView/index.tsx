@@ -160,12 +160,20 @@ const TaskColumn = ({
   }));
 
   const tasksCount = tasks.filter((task) => task.status === status).length;
+
   const statusColor: any = {
     ToDo: "#2563EB",
     WorkInProgress: "#059669",
     UnderReview: "#D97706",
     Completed: "#000000",
   };
+  const statusLabel: any = {
+    ToDo: "To Do",
+    WorkInProgress: "Work In Progress",
+    UnderReview: "Under Review",
+    Completed: "Completed",
+  };
+
   return (
     <div
       ref={(instance) => {
@@ -180,7 +188,7 @@ const TaskColumn = ({
         />
         <div className="flex w-full items-center justify-between rounded-e-lg bg-white px-5 py-4 dark:bg-dark-secondary">
           <h3 className="flex items-center text-lg font-semibold dark:text-white">
-            {status}{" "}
+            {statusLabel[status]}{" "}
             <span
               className="ml-2 inline-block rounded-full bg-gray-200 p-1 text-center text-sm leading-none dark:bg-dark-tertiary"
               style={{ width: "1.5rem", height: "1.5rem" }}
