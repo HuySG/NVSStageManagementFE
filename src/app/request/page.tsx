@@ -54,7 +54,11 @@ const LeaderAssetApproval = () => {
   const handleApprove = async (requestId: string) => {
     setLoadingRequestId(requestId);
     try {
-      await updateRequestStatus({ requestId, status: "LEADER_APPROVED" });
+      await updateRequestStatus({
+        requestId,
+        status: "PENDING_AM",
+        approverId: user?.id!,
+      });
       toast.success("Request Approved Successfully!");
     } catch (error) {
       toast.error("Failed to approve request.");
@@ -65,7 +69,11 @@ const LeaderAssetApproval = () => {
   const handleReject = async (requestId: string) => {
     setLoadingRequestId(requestId);
     try {
-      await updateRequestStatus({ requestId, status: "REJECTED" });
+      await updateRequestStatus({
+        requestId,
+        status: "REJECTED",
+        approverId: user?.id!,
+      });
       toast.error("Request Rejected!");
     } catch (error) {
       toast.error("Failed to reject request.");

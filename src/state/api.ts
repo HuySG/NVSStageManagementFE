@@ -181,6 +181,10 @@ export interface AssetRequest {
   status: string;
   requesterInfo: RequesterInfo | null;
   projectInfo: Project;
+  approvedByAMName: string;
+  approvedByAMTime: string;
+  approvedByDLName: string;
+  approvedByDLTime: string;
 }
 // 📌 Định nghĩa người yêu cầu
 export interface RequesterInfo {
@@ -402,12 +406,12 @@ export const api = createApi({
 
     updateAssetStatus: build.mutation<
       void,
-      { requestId: string; status: string }
+      { requestId: string; status: string; approverId: string }
     >({
-      query: ({ requestId, status }) => ({
+      query: ({ requestId, status, approverId }) => ({
         url: "request-asset/status",
         method: "PUT",
-        body: { requestId, status },
+        body: { requestId, status, approverId },
       }),
       invalidatesTags: ["AssetRequests"],
     }),

@@ -7,8 +7,6 @@ import {
 } from "@/state/api";
 import { useAppSelector } from "@/app/redux";
 import Link from "next/link";
-import { IconButton } from "@mui/material";
-import { MoreVerticalIcon } from "lucide-react";
 
 const ApprovedAssetRequests = () => {
   const { data: user } = useGetUserInfoQuery();
@@ -31,7 +29,7 @@ const ApprovedAssetRequests = () => {
   };
 
   const approvedRequests = requests.filter(
-    (request) => request.status === "LEADER_APPROVED",
+    (request) => request.status === "PENDING_AM",
   );
 
   if (isLoading) return <div className="py-4 text-center">Loading...</div>;
