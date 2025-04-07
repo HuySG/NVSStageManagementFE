@@ -1,6 +1,8 @@
 "use client";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
+import UserProfile from "@/components/UserProfile";
 import { setIsSidebarCollapsed } from "@/state";
+import { useGetProjectsByUserIdQuery, useGetUserInfoQuery } from "@/state/api";
 import {
   AlertCircle,
   AlertOctagon,
@@ -8,6 +10,7 @@ import {
   Briefcase,
   ChevronDown,
   ChevronUp,
+  FileChartPie,
   Home,
   Layers3,
   LockIcon,
@@ -17,6 +20,7 @@ import {
   ShieldAlert,
   User,
   Users,
+  Workflow,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -24,13 +28,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState } from "react";
 
-const Sidebar = () => {
+const Sidebarmember = () => {
   const [showProjects, setShowProjects] = useState(true);
   const [showPriority, setShowPriority] = useState(true);
   const dispatch = useAppDispatch();
   const isSidebarCollapsed = useAppSelector(
     (state) => state.global.isSidebarCollapsed,
   );
+  const { data: user, isLoading, error } = useGetUserInfoQuery();
+  const userId = user?.id ?? ""; // Gán giá trị mặc định là chuỗi rỗng
+
+  const {
+    data: projects,
+    isLoading: isProjectsLoading,
+    error: projectsError,
+  } = useGetProjectsByUserIdQuery(userId, {
+    skip: !userId, // Chỉ gọi API nếu userId có giá trị
+  });
+  if (isLoading) return <div>Loading user info...</div>;
+  if (error || !user) return <div>Failed to load user info</div>;
+  if (isProjectsLoading) return <div>Loading projects...</div>;
+  if (projectsError) return <div>Failed to load projects</div>;
 
   const sidebarClassnames = `fixed flex flex-col h-[100%] justify-between shadow-xl transition-all duration-300 h-full z-40 dark:bg-black overflow-y-auto bg-white  ${
     isSidebarCollapsed ? "w-0 hidden" : "w-64"
@@ -58,7 +76,7 @@ const Sidebar = () => {
           <Image src="/logo.png" alt="logo" width={40} height={40} />
           <div>
             <h3 className="text-md font-bold tracking-widest dark:text-gray-200">
-              EDROH TEAM
+              {user.department.name || "No Department"}
             </h3>
             <div className="mt-1 flex items-start gap-2">
               <LockIcon className="mt-[0.1rem] h-3 w-3 text-gray-500 dark:text-gray-400" />
@@ -69,17 +87,22 @@ const Sidebar = () => {
         {/* Navbar Links */}
         <nav className="z-10 w-full">
           <SidebarLink icon={Home} label="Home" href="/" />
-          <SidebarLink icon={Briefcase} label="TimeLine" href="/timelin" />
+          <SidebarLink icon={Briefcase} label="TimeLine" href="/timeline" />
           <SidebarLink icon={Search} label="Search" href="/search" />
           <SidebarLink icon={Settings} label="Settings" href="/settings" />
           <SidebarLink icon={User} label="Users" href="/users" />
           <SidebarLink icon={Users} label="Teams" href="/teams" />
+          <SidebarLink
+            icon={FileChartPie}
+            label="Request Status"
+            href="/requestApprove"
+          />
         </nav>
         <button
           onClick={() => setShowProjects((prev) => !prev)}
           className="flex w-full items-center justify-between px-8 py-3 text-gray-500"
         >
-          <span className=""> Projects</span>
+          <span className="">Projects</span>
           {showProjects ? (
             <ChevronUp className="h-5 w-5" />
           ) : (
@@ -87,6 +110,16 @@ const Sidebar = () => {
           )}
         </button>
         {/* Projects List */}
+        {showProjects &&
+          projects?.map((project) => (
+            <SidebarLink
+              key={project.projectID}
+              icon={Briefcase}
+              label={project.title}
+              href={`/Projects/${project.projectID}`}
+            />
+          ))}
+
         {/* PRIORITIES LINK */}
         <button
           onClick={() => setShowPriority((prev) => !prev)}
@@ -124,6 +157,7 @@ const Sidebar = () => {
             />
           </>
         )}
+        <UserProfile />
       </div>
     </div>
   );
@@ -159,4 +193,4 @@ const SidebarLink = ({ href, icon: Icon, label }: SiderlinkProps) => {
   );
 };
 
-export default Sidebar;
+export default Sidebarmember;
