@@ -1,6 +1,7 @@
 import {
   AssigneeInfo,
   TaskUser,
+  useArchiveTaskMutation,
   useGetTaskMilestoneQuery,
   useGetTasksByUserQuery,
   useGetUserByDepartmentQuery,
@@ -20,6 +21,7 @@ import {
   Plus,
   Trash2,
   X,
+  Archive,
 } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
@@ -238,6 +240,22 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
     ? format(new Date(task.endDate), "P")
     : "";
   const [showOptions, setShowOptions] = useState(false);
+  const [archiveTask] = useArchiveTaskMutation();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const handleArchiveTask = async (taskId: string) => {
+    try {
+      await archiveTask({ taskId }).unwrap();
+      setErrorMessage(null); 
+      alert("Task archived successfully!");
+    } catch (error: any) {
+      console.error("Error archiving task:", error);
+      if (error.data?.error) {
+        setErrorMessage(error.data.error); 
+      } else {
+        setErrorMessage("An unexpected error occurred.");
+      }
+    }
+  };
   const searchParams = useSearchParams();
 
   const taskRef = useRef<HTMLDivElement | null>(null); // 🔹 Xác định kiểu dữ liệu
@@ -327,6 +345,17 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
                     <Trash2 size={18} />
                     Delete Task
                   </button>
+                  <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  archiveTask({ taskId: task.taskID });
+                  setShowOptions(false);
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2 text-blue-500 hover:bg-gray-100 dark:hover:bg-dark-tertiary"
+              >
+                <Archive size={18} />
+                Archive Task
+              </button>
                 </div>
               )}
             </div>
@@ -443,3 +472,4 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
 };
 
 export default BoardView;
+

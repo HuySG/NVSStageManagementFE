@@ -430,6 +430,13 @@ export const api = createApi({
             }))
           : [{ type: "Comments" as const }],
     }),
+    archiveTask: build.mutation<void, { taskId: string }>({
+      query: ({ taskId }) => ({
+        url: `tasks/archive/taskId?id=${taskId}`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, { taskId }) => [{ type: "Tasks", id: taskId }],
+    }),
     postTaskComment: build.mutation<Comment, Partial<Comment>>({
       query: (commentData) => ({
         url: "comment",
@@ -512,4 +519,6 @@ export const {
   usePostTaskCommentMutation,
   //uploadFileMetadata
   useUploadFileMetadataMutation,
+  //archiveTask
+  useArchiveTaskMutation,
 } = api;

@@ -4,7 +4,8 @@ import { usePathname } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import StoreProvider, { useAppSelector } from "./redux";
-import AuthProvider from "./AuthProvider";
+import AuthProvider from "./authProvider";
+
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const isSidebarCollapsed = useAppSelector(
