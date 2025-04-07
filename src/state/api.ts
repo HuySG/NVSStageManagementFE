@@ -336,7 +336,10 @@ export const api = createApi({
       query: (assetID) => `request-asset/by-asset?assetId=${assetID}`,
       providesTags: ["AssetRequests"],
     }),
-
+    // 📌 Thêm API để lấy yêu cầu tài sản theo taskId
+    getRequestsByTask: build.query<any[], string>({
+      query: (taskId) => `request-asset/by-task/${taskId}`,
+    }),
     createAssetRequest: build.mutation<AssetRequest, Partial<AssetRequest>>({
       query: (assetRequest) => ({
         url: "request-asset",
@@ -521,4 +524,6 @@ export const {
   useUploadFileMetadataMutation,
   //archiveTask
   useArchiveTaskMutation,
+  //getRequestByTask
+  useGetRequestsByTaskQuery,
 } = api;
