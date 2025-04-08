@@ -230,12 +230,14 @@ const LeaderAssetApproval = () => {
                       <thead className="bg-gray-100 dark:bg-gray-700">
                         <tr>
                           <th className="border px-3 py-2">Description</th>
+                          <th className="border px-3 py-2">Categories</th>
                           <th className="border px-3 py-2">Time Period</th>
                           <th className="border px-3 py-2">Requester</th>
                           <th className="border px-3 py-2">Task</th>
                           <th className="border px-3 py-2">Actions</th>
                         </tr>
                       </thead>
+
                       <tbody>
                         {categoryBased.map((req) => (
                           <tr
@@ -244,6 +246,19 @@ const LeaderAssetApproval = () => {
                           >
                             <td className="border px-3 py-2">
                               {req.description}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {req.categories?.length! > 0 ? (
+                                <ul className="list-disc pl-4">
+                                  {req.categories?.map((cat) => (
+                                    <li key={cat.categoryID}>
+                                      {cat.name} - {cat.quantity}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                "No Categories"
+                              )}
                             </td>
                             <td className="border px-3 py-2">
                               <p>

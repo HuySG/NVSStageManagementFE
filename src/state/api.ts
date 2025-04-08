@@ -178,6 +178,7 @@ export interface AssetRequest {
   startTime: string;
   endTime: string;
   asset: Asset | null; // Một yêu cầu chỉ liên quan đến một tài sản
+  categories?: CategoryRequestItem[];
   task: Task;
   status: string;
   requesterInfo: RequesterInfo | null;
@@ -186,6 +187,12 @@ export interface AssetRequest {
   approvedByAMTime: string;
   approvedByDLName: string;
   approvedByDLTime: string;
+}
+
+export interface CategoryRequestItem {
+  categoryID: string;
+  name: string;
+  quantity: number;
 }
 // 📌 Định nghĩa người yêu cầu
 export interface RequesterInfo {
@@ -491,7 +498,6 @@ export const api = createApi({
     getEventsByMilestone: build.query({
       query: ({ milestoneId }) => `/events/milestone/${milestoneId}`,
     }),
-
   }),
 });
 

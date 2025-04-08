@@ -161,7 +161,19 @@ const RequestTable = ({ requests }: { requests: AssetRequest[] }) => {
                 {req.requesterInfo?.fullName ?? "Unknown"}
               </td>
               <td className="px-4 py-2">
-                {req.asset?.assetName ?? "Category-based"}
+                {req.asset ? (
+                  req.asset.assetName
+                ) : req.categories && req.categories.length > 0 ? (
+                  <ul className="list-disc pl-5 text-sm text-gray-700 dark:text-gray-300">
+                    {req.categories.map((cat) => (
+                      <li key={cat.categoryID}>
+                        {cat.name} (x{cat.quantity})
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  "No Categories"
+                )}
               </td>
             </tr>
           ))}
