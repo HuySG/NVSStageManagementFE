@@ -103,118 +103,217 @@ const LeaderAssetApproval = () => {
   const pendingRequests = requests.filter(
     (request) => request.status === "PENDING_LEADER",
   );
+  // 🧠 Group theo projectID
+  const requestsGroupedByProject = pendingRequests.reduce<
+    Record<string, AssetRequest[]>
+  >((acc, req) => {
+    const projectId = req.projectInfo.projectID;
+    if (!acc[projectId]) acc[projectId] = [];
+    acc[projectId].push(req);
+    return acc;
+  }, {});
 
   return (
     <div
-      className={`container mx-auto p-6 ${isDarkMode ? "bg-gray-900 text-white" : "bg-white text-black"}`}
+      className={`container mx-auto p-6 ${
+        isDarkMode ? "bg-gray-900 text-white" : "bg-white text-black"
+      }`}
     >
       <h1 className="mb-6 text-center text-3xl font-bold">
-        Asset Request List
+        Pending Asset Requests (Leader)
       </h1>
-      {pendingRequests.length === 0 ? (
-        <div className="text-center text-gray-500">
-          No pending asset requests available
-        </div>
+
+      {isLoading ? (
+        <div className="text-center">Loading...</div>
+      ) : error ? (
+        <div className="text-center text-red-500">Error loading requests</div>
+      ) : Object.keys(requestsGroupedByProject).length === 0 ? (
+        <div className="text-center text-gray-500">No pending requests.</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg shadow-lg">
-          <table className="w-full border-collapse bg-white text-sm shadow-md dark:bg-gray-800">
-            <thead>
-              <tr className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                <th className="border px-4 py-3 text-left">Description</th>
-                <th className="border px-4 py-3 text-left">Status</th>
-                <th className="border px-4 py-3 text-left">Creation Date</th>
-                <th className="border px-4 py-3 text-left">Time Period</th>
-                <th className="border px-4 py-3 text-left">Task</th>
-                <th className="border px-4 py-3 text-left">Requester</th>
-                <th className="border px-4 py-3 text-left">Asset</th>
-                <th className="border px-4 py-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingRequests.map((request) => (
-                <tr
-                  key={request.requestId}
-                  className="border hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  <td className="border px-4 py-3">{request.description}</td>
+        Object.entries(requestsGroupedByProject).map(
+          ([projectId, projectRequests]) => {
+            const project = projectRequests[0].projectInfo;
+            const assetBased = projectRequests.filter((r) => r.asset !== null);
+            const categoryBased = projectRequests.filter(
+              (r) => r.asset === null,
+            );
 
-                  <td
-                    className={`borde bg-opacity-70 px-4 py-3 text-black ${
-                      request.status === "PENDING_LEADER"
-                        ? "bg-yellow-500"
-                        : request.status === "LEADER_APPROVED"
-                          ? "bg-blue-500"
-                          : request.status === "AM_APPROVED"
-                            ? "bg-green-500"
-                            : "bg-red-500"
-                    }`}
-                  >
-                    {statusMapping[request.status]}
-                  </td>
+            return (
+              <div
+                key={projectId}
+                className="mb-8 rounded-lg border p-4 shadow-md"
+              >
+                <h2 className="mb-2 text-xl font-semibold">
+                  Project: {project.title}
+                </h2>
 
-                  <td className="border px-4 py-3">
-                    {new Date(request.startTime).toLocaleDateString()}
-                  </td>
-                  <td className="border px-4 py-3">
-                    <p>
-                      <strong>Start:</strong>{" "}
-                      {new Date(request.startTime).toLocaleDateString()}
-                    </p>
-                    <p>
-                      <strong>End:</strong>{" "}
-                      {new Date(request.endTime).toLocaleDateString()}
-                    </p>
-                  </td>
-                  <td className="border px-4 py-3">
-                    {request.task ? (
-                      <Link
-                        href={`/Projects/${request.projectInfo.projectID}/milestones/${request.task.milestoneId}?taskId=${request.task.taskID}`}
-                        className="text-blue-500 hover:underline"
-                      >
-                        {request.task.title}
-                      </Link>
-                    ) : (
-                      "No Task"
-                    )}
-                  </td>
-                  <td className="border px-4 py-3">
-                    {request.requesterInfo?.fullName ?? "No requester info"}
-                  </td>
-                  <td className="border px-4 py-3">
-                    {request.asset?.assetName ?? "No Asset"}
-                  </td>
-                  <td className="flex items-center gap-2 px-4 py-6">
-                    <IconButton
-                      onClick={(event) =>
-                        handleOpenMenu(event, request.requestId)
-                      }
-                    >
-                      <MoreVerticalIcon />
-                    </IconButton>
-                    <Menu
-                      anchorEl={anchorEl[request.requestId]}
-                      open={Boolean(anchorEl[request.requestId])}
-                      onClose={() => handleCloseMenu(request.requestId)}
-                    >
-                      <MenuItem
-                        onClick={() => handleApprove(request.requestId)}
-                        disabled={loadingRequestId === request.requestId}
-                      >
-                        Approve
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => handleReject(request.requestId)}
-                        disabled={loadingRequestId === request.requestId}
-                      >
-                        Reject
-                      </MenuItem>
-                    </Menu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                {assetBased.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="mb-2 text-lg font-medium text-blue-600">
+                      Asset-based Requests
+                    </h3>
+                    <table className="mb-4 w-full border-collapse text-sm">
+                      <thead className="bg-gray-100 dark:bg-gray-700">
+                        <tr>
+                          <th className="border px-3 py-2">Description</th>
+                          <th className="border px-3 py-2">Asset</th>
+                          <th className="border px-3 py-2">Time Period</th>
+                          <th className="border px-3 py-2">Requester</th>
+                          <th className="border px-3 py-2">Task</th>
+                          <th className="border px-3 py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assetBased.map((req) => (
+                          <tr
+                            key={req.requestId}
+                            className="hover:bg-gray-100 dark:hover:bg-gray-800"
+                          >
+                            <td className="border px-3 py-2">
+                              {req.description}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {req.asset?.assetName}
+                            </td>
+                            <td className="border px-3 py-2">
+                              <p>
+                                Start:{" "}
+                                {new Date(req.startTime).toLocaleDateString()}
+                              </p>
+                              <p>
+                                End:{" "}
+                                {new Date(req.endTime).toLocaleDateString()}
+                              </p>
+                            </td>
+                            <td className="border px-3 py-2">
+                              {req.requesterInfo?.fullName}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {req.task ? (
+                                <Link
+                                  className="text-blue-500 hover:underline"
+                                  href={`/Projects/${project.projectID}/milestones/${req.task.milestoneId}?taskId=${req.task.taskID}`}
+                                >
+                                  {req.task.title}
+                                </Link>
+                              ) : (
+                                "No Task"
+                              )}
+                            </td>
+                            <td className="space-x-2 border px-3 py-2">
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="success"
+                                disabled={loadingRequestId === req.requestId}
+                                onClick={() => handleApprove(req.requestId)}
+                              >
+                                {loadingRequestId === req.requestId ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  "Approve"
+                                )}
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="error"
+                                disabled={loadingRequestId === req.requestId}
+                                onClick={() => handleReject(req.requestId)}
+                              >
+                                Reject
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {categoryBased.length > 0 && (
+                  <div>
+                    <h3 className="mb-2 text-lg font-medium text-green-600">
+                      Category-based Requests
+                    </h3>
+                    <table className="w-full border-collapse text-sm">
+                      <thead className="bg-gray-100 dark:bg-gray-700">
+                        <tr>
+                          <th className="border px-3 py-2">Description</th>
+                          <th className="border px-3 py-2">Time Period</th>
+                          <th className="border px-3 py-2">Requester</th>
+                          <th className="border px-3 py-2">Task</th>
+                          <th className="border px-3 py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {categoryBased.map((req) => (
+                          <tr
+                            key={req.requestId}
+                            className="hover:bg-gray-100 dark:hover:bg-gray-800"
+                          >
+                            <td className="border px-3 py-2">
+                              {req.description}
+                            </td>
+                            <td className="border px-3 py-2">
+                              <p>
+                                Start:{" "}
+                                {new Date(req.startTime).toLocaleDateString()}
+                              </p>
+                              <p>
+                                End:{" "}
+                                {new Date(req.endTime).toLocaleDateString()}
+                              </p>
+                            </td>
+                            <td className="border px-3 py-2">
+                              {req.requesterInfo?.fullName}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {req.task ? (
+                                <Link
+                                  className="text-blue-500 hover:underline"
+                                  href={`/Projects/${project.projectID}/milestones/${req.task.milestoneId}?taskId=${req.task.taskID}`}
+                                >
+                                  {req.task.title}
+                                </Link>
+                              ) : (
+                                "No Task"
+                              )}
+                            </td>
+                            <td className="space-x-2 border px-3 py-2">
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="success"
+                                disabled={loadingRequestId === req.requestId}
+                                onClick={() => handleApprove(req.requestId)}
+                              >
+                                {loadingRequestId === req.requestId ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  "Approve"
+                                )}
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="error"
+                                disabled={loadingRequestId === req.requestId}
+                                onClick={() => handleReject(req.requestId)}
+                              >
+                                Reject
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          },
+        )
       )}
     </div>
   );
