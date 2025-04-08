@@ -1,76 +1,110 @@
 import { useEffect, useState } from "react";
+
 import {
   useGetAssetTypesQuery,
   AssetType,
   AssetCategory,
   useCreateAssetRequestCategoryMutation,
 } from "@/state/api";
+import { toast } from "react-toastify";
 
 type RequestAssetCategoryModalProps = {
   taskId: string;
   onClose: () => void;
 };
 
-const RequestAssetCategoryModal = ({
-  taskId,
-  onClose,
-}: RequestAssetCategoryModalProps) => {
+const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModalProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [selectedAssetTypeId, setSelectedAssetTypeId] = useState("");
   const [categories, setCategories] = useState<AssetCategory[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [validationErrors, setValidationErrors] = useState<
-    Record<string, string>
-  >({});
+  const [selectedCategories, setSelectedCategories] = useState<{
+    categoryID: string;
+    quantity: number;
+  }[]>([]);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const { data: assetTypes = [], isLoading: assetTypesLoading } =
-    useGetAssetTypesQuery();
-
+  const { data: assetTypes = [], isLoading: assetTypesLoading } = useGetAssetTypesQuery();
   const [createCategoryRequest, { isLoading: isSubmitting, isSuccess, error }] =
     useCreateAssetRequestCategoryMutation();
 
-  // Cập nhật categories khi chọn Asset Type
   useEffect(() => {
-    const selectedType = assetTypes.find(
-      (type: AssetType) => type.id === selectedAssetTypeId,
-    );
+    const selectedType = assetTypes.find((type: AssetType) => type.id === selectedAssetTypeId);
     setCategories(selectedType?.categories ?? []);
     setSelectedCategories([]);
   }, [selectedAssetTypeId, assetTypes]);
 
-  // Tự động đóng modal khi thành công
   useEffect(() => {
-    if (isSuccess) onClose();
+    if (isSuccess) {
+      toast.success("Request submitted successfully!", { autoClose: 5000 });
+      onClose();
+    }
   }, [isSuccess, onClose]);
 
   const toggleCategory = (categoryId: string) => {
+    setSelectedCategories((prev) => {
+      const exists = prev.find((c) => c.categoryID === categoryId);
+      if (exists) {
+        return prev.filter((c) => c.categoryID !== categoryId);
+      } else {
+        return [...prev, { categoryID: categoryId, quantity: 1 }];
+      }
+    });
+  };
+
+  const updateQuantity = (categoryId: string, quantity: number) => {
     setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId],
+      prev.map((c) => (c.categoryID === categoryId ? { ...c, quantity } : c))
     );
   };
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    if (!title) errors.title = "Title is required";
-    if (!description) errors.description = "Description is required";
+    if (!title.trim()) errors.title = "Title is required";
+    if (!description.trim()) errors.description = "Description is required";
     if (!startTime) errors.startTime = "Start time is required";
     if (!endTime) errors.endTime = "End time is required";
     if (!selectedAssetTypeId) errors.assetType = "Asset Type is required";
-    if (selectedCategories.length === 0)
-      errors.categories = "Select at least one category";
 
     if (startTime && endTime && new Date(startTime) >= new Date(endTime)) {
       errors.endTime = "End time must be after start time";
     }
 
+    if (selectedCategories.length === 0) {
+      errors.categories = "Select at least one category";
+    }
+
+    selectedCategories.forEach((cat) => {
+      if (cat.quantity <= 0 || !Number.isInteger(cat.quantity)) {
+        errors[`quantity-${cat.categoryID}`] = "Quantity must be an integer greater than 0";
+      }
+    });
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const getServerErrorMessage = (error: any) => {
+    if (!error) return null;
+
+    if ("status" in error) {
+      if (error.data && typeof error.data === "object" && "message" in error.data) {
+        return error.data.message;
+      }
+      if (typeof error.data === "string") {
+        return error.data;
+      }
+      return `Server Error: ${error.status}`;
+    }
+
+    if (error.message) {
+      return error.message;
+    }
+
+    return "Something went wrong, please try again.";
   };
 
   const handleSubmit = async () => {
@@ -82,15 +116,13 @@ const RequestAssetCategoryModal = ({
       description,
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
-      categories: selectedCategories.map((id) => ({
-        categoryID: id,
-        quantity: 1,
-      })),
+      categories: selectedCategories.map((c) => ({ categoryID: c.categoryID, quantity: c.quantity })),
     };
 
     try {
       await createCategoryRequest(requestData).unwrap();
-    } catch (err) {
+    } catch (err: any) {
+      toast.error(getServerErrorMessage(err), { autoClose: 5000 });
       console.error("Error submitting category request:", err);
     }
   };
@@ -156,28 +188,42 @@ const RequestAssetCategoryModal = ({
           {getErrorMessage("assetType")}
         </div>
 
-        {/* Category Selection */}
+        {/* Category + Quantity */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Categories
           </label>
           <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
-            {categories.map((cat) => (
-              <label
-                key={cat.categoryID}
-                className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedCategories.includes(cat.categoryID)}
-                  onChange={() => toggleCategory(cat.categoryID)}
-                  className="accent-blue-600"
-                />
-                {cat.name}
-              </label>
-            ))}
+            {categories.map((cat) => {
+              const selected = selectedCategories.find((c) => c.categoryID === cat.categoryID);
+              return (
+                <div key={cat.categoryID} className="flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={!!selected}
+                      onChange={() => toggleCategory(cat.categoryID)}
+                      className="accent-blue-600"
+                    />
+                    {cat.name}
+                  </label>
+                  {selected && (
+                    <input
+                      type="number"
+                      min={1}
+                      value={selected.quantity}
+                      onChange={(e) =>
+                        updateQuantity(cat.categoryID, Math.max(1, parseInt(e.target.value) || 1))
+                      }
+                      className="w-20 rounded border border-gray-300 p-1 text-center dark:bg-dark-tertiary dark:text-white"
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
           {getErrorMessage("categories")}
+          {categories.map((cat) => getErrorMessage(`quantity-${cat.categoryID}`))}
         </div>
 
         {/* Time Range */}
@@ -208,7 +254,7 @@ const RequestAssetCategoryModal = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Buttons */}
         <div className="mt-6 flex justify-end gap-4">
           <button
             onClick={onClose}
@@ -224,13 +270,6 @@ const RequestAssetCategoryModal = ({
             {isSubmitting ? "Submitting..." : "Submit Request"}
           </button>
         </div>
-
-        {/* Error message */}
-        {error && (
-          <p className="mt-3 text-sm text-red-500">
-            {(error as any)?.data?.message || "Error submitting request!"}
-          </p>
-        )}
       </div>
     </div>
   );

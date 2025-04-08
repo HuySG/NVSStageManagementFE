@@ -19,6 +19,7 @@ export interface Milestone {
   startDate: string; // ISO 8601 format (e.g., "2025-03-18T20:24:38.797Z")
   endDate: string;
   projectID: String; // Liên kết với projectID từ Project
+  events?: Event[];
 }
 
 export enum Priority {
@@ -232,6 +233,7 @@ export const api = createApi({
     "AssetTypes",
     "Assets",
     "Attachments",
+    "Events",
   ],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
@@ -486,6 +488,10 @@ export const api = createApi({
       }),
       invalidatesTags: ["Attachments"],
     }),
+    getEventsByMilestone: build.query({
+      query: ({ milestoneId }) => `/events/milestone/${milestoneId}`,
+    }),
+
   }),
 });
 
@@ -554,4 +560,6 @@ export const {
   useArchiveTaskMutation,
   //getRequestByTask
   useGetRequestsByTaskQuery,
+  //getEventsByMilestone
+  useLazyGetEventsByMilestoneQuery,
 } = api;

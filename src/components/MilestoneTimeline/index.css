@@ -1,0 +1,32 @@
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.ripple {
+  position: relative;
+}
+
+.ripple:after {
+  content: "";
+  position: absolute;
+  top: 25%;
+  left: 5%;
+
+  transform: translate(-50%, -50%);
+  width: 90%;
+  height: 90%;
+  border: 3px solid rgba(19, 10, 197, 0.8);
+  border-radius: 50%;
+  animation: ripple 1.5s infinite;
+}

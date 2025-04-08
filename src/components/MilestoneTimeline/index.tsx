@@ -1,49 +1,78 @@
 "use client";
-import {
-  VerticalTimeline,
-  VerticalTimelineElement,
-} from "react-vertical-timeline-component";
+import { VerticalTimeline, VerticalTimelineElement } from "react-vertical-timeline-component";
 import "react-vertical-timeline-component/style.min.css";
 import { useRouter } from "next/navigation";
 import {
   useGetMilestonesByProjectQuery,
   useGetProjectsQuery,
+  useLazyGetEventsByMilestoneQuery,
 } from "@/state/api";
 import { FaFlagCheckered } from "react-icons/fa";
 import { useState } from "react";
 import Header from "../Header";
 import ModalNewProject from "@/app/Projects/ModalNewProject";
+import EventListModal from "../EventInfoModal/EventListModal";
 import { PlusSquare } from "lucide-react";
-
+import "./index.css"
 type Props = { projectID: string };
 
 export default function MilestoneTimeline({ projectID }: Props) {
   const router = useRouter();
   const {
     data: milestones,
-    error,
-    isLoading,
+    error: milestonesError,
+    isLoading: milestonesLoading,
   } = useGetMilestonesByProjectQuery({ projectID });
-  const [isModalNewProjectOpen, setIsModalNewProjectOpen] = useState(false);
   const { data: projects } = useGetProjectsQuery();
   const project = projects?.find((p) => p.projectID === projectID);
 
-  if (isLoading)
+  // State mở modal tạo milestone
+  const [isModalNewProjectOpen, setIsModalNewProjectOpen] = useState(false);
+  // State quản lý modal hiển thị danh sách event của 1 milestone
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [eventList, setEventList] = useState<any[]>([]);
+  // Hook lazy query để gọi API get events theo milestoneID khi cần
+  const [triggerGetEvents, { isFetching: eventsLoading, error: eventsError }] =
+    useLazyGetEventsByMilestoneQuery();
+
+  if (milestonesLoading)
     return <div className="p-5 text-center text-gray-500">Loading...</div>;
-  if (error || !milestones)
+  if (milestonesError || !milestones)
     return (
       <div className="p-5 text-center text-red-500">
         Error fetching milestones
       </div>
     );
 
+  // Hàm xử lý khi click vào icon cờ để lấy danh sách event cho milestone cụ thể
+  const handleEventListClick = async (milestoneId: string) => {
+    try {
+      const eventsData = await triggerGetEvents({ milestoneId }).unwrap();
+      setEventList(eventsData);
+      setIsEventModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching events for milestone", milestoneId, error);
+      // Bạn có thể hiển thị thông báo lỗi cho người dùng tại đây nếu cần
+    }
+  };
+
   return (
     <div className="container mx-auto max-w-4xl px-4">
-      {/* MODAL NEW PROJECT */}
+
+      {/* Modal New Project */}
       <ModalNewProject
         isOpen={isModalNewProjectOpen}
         onClose={() => setIsModalNewProjectOpen(false)}
         id={projectID}
+      />
+
+      {/* Modal hiển thị danh sách event của milestone */}
+      <EventListModal
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
+        events={eventList}
+        isLoading={eventsLoading}
+        error={eventsError}
       />
 
       {/* HEADER */}
@@ -67,18 +96,39 @@ export default function MilestoneTimeline({ projectID }: Props) {
           .slice()
           .sort(
             (a, b) =>
-              new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+              new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
           )
           .map((milestone) => (
             <VerticalTimelineElement
               key={milestone.milestoneID}
-              date={`${new Date(milestone.startDate).toLocaleDateString()} - ${new Date(milestone.endDate).toLocaleDateString()}`}
+              date={`${new Date(milestone.startDate).toLocaleDateString()} - ${new Date(
+                milestone.endDate
+              ).toLocaleDateString()}`}
               iconStyle={{
                 background: "linear-gradient(to right, #4f46e5, #9333ea)",
                 color: "#fff",
                 boxShadow: "0px 0px 10px rgba(79, 70, 229, 0.6)",
+                cursor: "pointer",
               }}
-              icon={<FaFlagCheckered />}
+              icon={
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEventListClick(milestone.milestoneID);
+                  }}
+                  // Nếu milestone có event (giả sử milestone.events là mảng), thêm class "ripple" để hiển thị animation
+                  className={milestone.events && milestone.events.length > 0 ? "ripple" : ""}
+                  style={{
+                    height: "100%",
+                    width: "100%",
+                  
+                    alignItems: "flex-end",
+                    paddingBottom: "4px",
+                  }}
+                >
+                  <FaFlagCheckered />
+                </div>
+              }
               contentStyle={{
                 background: "#ffffff",
                 color: "#333",
@@ -86,11 +136,12 @@ export default function MilestoneTimeline({ projectID }: Props) {
                 borderRadius: "12px",
                 padding: "20px",
                 transition: "transform 0.3s ease-in-out",
+                cursor: "pointer",
               }}
               contentArrowStyle={{ borderRight: "7px solid #ffffff" }}
               onTimelineElementClick={() =>
                 router.push(
-                  `/Projects/${projectID}/milestones/${milestone.milestoneID}`,
+                  `/Projects/${projectID}/milestones/${milestone.milestoneID}`
                 )
               }
             >
