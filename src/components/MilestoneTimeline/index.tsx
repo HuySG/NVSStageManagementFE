@@ -13,7 +13,7 @@ import Header from "../Header";
 import ModalNewProject from "@/app/Projects/ModalNewProject";
 import EventListModal from "../EventInfoModal/EventListModal";
 import { PlusSquare } from "lucide-react";
-
+import "./index.css"
 type Props = { projectID: string };
 
 export default function MilestoneTimeline({ projectID }: Props) {
@@ -58,23 +58,6 @@ export default function MilestoneTimeline({ projectID }: Props) {
 
   return (
     <div className="container mx-auto max-w-4xl px-4">
-      {/* Global CSS cho animation ripple */}
-      <style jsx global>{`
-        @keyframes ripple {
-          0% {
-            box-shadow: 0 0 0 0 rgba(79,70,229, 0.7);
-          }
-          70% {
-            box-shadow: 0 0 0 10px rgba(79,70,229, 0);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(79,70,229, 0);
-          }
-        }
-        .ripple {
-          animation: ripple 1.5s infinite;
-        }
-      `}</style>
 
       {/* Modal New Project */}
       <ModalNewProject
