@@ -81,16 +81,6 @@ const LeaderAssetApproval = () => {
     setLoadingRequestId(null);
   };
 
-  const handleOpenMenu = (
-    event: React.MouseEvent<HTMLButtonElement>,
-    requestId: string,
-  ) => {
-    setAnchorEl((prev) => ({ ...prev, [requestId]: event.currentTarget }));
-  };
-
-  const handleCloseMenu = (requestId: string) => {
-    setAnchorEl((prev) => ({ ...prev, [requestId]: null }));
-  };
   const statusMapping: Record<string, string> = {
     PENDING_LEADER: "Pending Leader Approval",
     LEADER_APPROVED: "Leader Approved, Pending AM",

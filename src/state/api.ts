@@ -418,6 +418,24 @@ export const api = createApi({
       }),
       invalidatesTags: ["AssetRequests"],
     }),
+    acceptBookingRequest: build.mutation<
+      AssetRequest,
+      { requestId: string; userId: string }
+    >({
+      query: ({ requestId, userId }) => ({
+        url: `request-asset/${requestId}/${userId}/accept-booking`,
+        method: "PUT",
+      }),
+      invalidatesTags: ["AssetRequests"],
+    }),
+
+    acceptRequest: build.mutation<AssetRequest, { requestId: string }>({
+      query: ({ requestId }) => ({
+        url: `request-asset/accept?requestId=${requestId}`,
+        method: "PUT",
+      }),
+      invalidatesTags: ["AssetRequests"],
+    }),
 
     // 📌 Thêm API để lấy danh sách milestone theo project
     getMilestonesByProject: build.query<Milestone[], { projectID: string }>({
@@ -442,7 +460,9 @@ export const api = createApi({
         url: `tasks/archive/taskId?id=${taskId}`,
         method: "POST",
       }),
-      invalidatesTags: (result, error, { taskId }) => [{ type: "Tasks", id: taskId }],
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Tasks", id: taskId },
+      ],
     }),
     postTaskComment: build.mutation<Comment, Partial<Comment>>({
       query: (commentData) => ({
@@ -518,6 +538,10 @@ export const {
   useGetRequestAssetByDepartmentQuery,
   //updateAssetStatus
   useUpdateAssetStatusMutation,
+  //acceptBookingRequest
+  useAcceptBookingRequestMutation,
+  //acceptRequest
+  useAcceptRequestMutation,
   //getMilestonesByProject
   useGetMilestonesByProjectQuery,
   //getTaskComments
