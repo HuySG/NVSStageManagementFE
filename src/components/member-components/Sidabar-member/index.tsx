@@ -67,7 +67,7 @@ const Sidebarmember = () => {
                 dispatch(setIsSidebarCollapsed(!isSidebarCollapsed));
               }}
             >
-              <X className="hover: h-6 w-6 text-gray-500 text-gray-800 dark:text-white" />
+              <X className="hover: h-6 w-6  text-gray-800 dark:text-white" />
             </button>
           )}
         </div>
