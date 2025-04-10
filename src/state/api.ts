@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { Key, ReactNode } from "react";
 
 export interface Project {
   projectID: string;
@@ -57,6 +58,9 @@ export interface Department {
 }
 
 export interface Comment {
+  createdDate(createdDate: any): unknown;
+  commentText: ReactNode;
+  commentID: Key | null | undefined;
   id: string;
   taskId: string;
   userId: string;
@@ -427,24 +431,6 @@ export const api = createApi({
       }),
       invalidatesTags: ["AssetRequests"],
     }),
-    acceptBookingRequest: build.mutation<
-      AssetRequest,
-      { requestId: string; userId: string }
-    >({
-      query: ({ requestId, userId }) => ({
-        url: `request-asset/${requestId}/${userId}/accept-booking`,
-        method: "PUT",
-      }),
-      invalidatesTags: ["AssetRequests"],
-    }),
-
-    acceptRequest: build.mutation<AssetRequest, { requestId: string }>({
-      query: ({ requestId }) => ({
-        url: `request-asset/accept?requestId=${requestId}`,
-        method: "PUT",
-      }),
-      invalidatesTags: ["AssetRequests"],
-    }),
 
     // 📌 Thêm API để lấy danh sách milestone theo project
     getMilestonesByProject: build.query<Milestone[], { projectID: string }>({
@@ -455,7 +441,12 @@ export const api = createApi({
           : [{ type: "Milestones" }],
     }),
     getTaskComments: build.query<Comment[], { taskID: string }>({
-      query: ({ taskID }) => `/api/v1/comment/task?taskID=${taskID}`,
+      query: ({ taskID }) => {
+        if (!taskID) {
+          throw new Error("Task ID is required to fetch comments.");
+        }
+        return `comment/task?taskID=${taskID}`;
+      },
       providesTags: (result) =>
         result
           ? result.map(({ id }) => ({
@@ -469,19 +460,23 @@ export const api = createApi({
         url: `tasks/archive/taskId?id=${taskId}`,
         method: "POST",
       }),
-      invalidatesTags: (result, error, { taskId }) => [
-        { type: "Tasks", id: taskId },
-      ],
+      invalidatesTags: (result, error, { taskId }) => [{ type: "Tasks", id: taskId }],
     }),
-    postTaskComment: build.mutation<Comment, Partial<Comment>>({
-      query: (commentData) => ({
-        url: "comment",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: commentData,
-      }),
+    postTaskComment: build.mutation<Comment, { taskID: string; userID: string; commentText: string }>({
+      query: (commentData) => {
+        console.log("Payload being sent to API:", commentData);
+        if (!commentData.taskID) {
+          throw new Error("Task ID is required to post a comment.");
+        }
+        return {
+          url: "comment", // Endpoint chính xác từ Swagger
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: commentData, // Payload gửi lên server
+        };
+      },
       invalidatesTags: [{ type: "Comments" }],
     }),
     uploadFileMetadata: build.mutation<
@@ -550,10 +545,6 @@ export const {
   useGetRequestAssetByDepartmentQuery,
   //updateAssetStatus
   useUpdateAssetStatusMutation,
-  //acceptBookingRequest
-  useAcceptBookingRequestMutation,
-  //acceptRequest
-  useAcceptRequestMutation,
   //getMilestonesByProject
   useGetMilestonesByProjectQuery,
   //getTaskComments

@@ -2,18 +2,20 @@ import {
   AssigneeInfo,
   Status,
   TaskUser,
+  useGetTaskCommentsQuery,
+  usePostTaskCommentMutation,
   useUploadFileMetadataMutation,
   Watcher,
 } from "@/state/api";
 import { Task as TaskType } from "@/state/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { X } from "lucide-react";
-import RequestAssetModal from "../RequestAssetModal";
+import AssetRequestSelector from "../AssetRequestSelector";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebaseConfig";
-import AssetRequestSelector from "../AssetRequestSelector";
 import { toast } from "react-toastify";
+import { Comment } from "@/state/api";
 
 type EditTaskModalProps = {
   task: TaskType;
@@ -32,55 +34,58 @@ const EditTaskModal = ({
   const [description, setDescription] = useState(task.description);
   const [priority, setPriority] = useState<TaskType["priority"]>(task.priority);
   const [startDate, setStartDate] = useState(
-    task.startDate ? format(new Date(task.startDate), "yyyy-MM-dd") : "",
+    task.startDate ? format(new Date(task.startDate), "yyyy-MM-dd") : ""
   );
   const [endDate, setEndDate] = useState(
-    task.endDate ? format(new Date(task.endDate), "yyyy-MM-dd") : "",
+    task.endDate ? format(new Date(task.endDate), "yyyy-MM-dd") : ""
   );
   const [tags, setTags] = useState(task.tag || "");
   const [status, setStatus] = useState(task.status || "");
   const [assigneeinfo, setAssigneeinfo] = useState<AssigneeInfo | undefined>(
-    task.assigneeInfo ?? undefined,
+    task.assigneeInfo ?? undefined
   );
-
   const [newComment, setNewComment] = useState("");
-
   const [watchers, setWatcher] = useState(task.watchers || []);
-
   const [milestoneId, setMilestoneId] = useState(task.milestoneId || "");
   const [attachments, setAttachments] = useState(task.attachments || []);
   const [newAttachment, setNewAttachment] = useState<File | null>(null);
-  const [uploadFileMetadata] = useUploadFileMetadataMutation(); // Gọi mutation từ RTK Query
+  const [uploadFileMetadata] = useUploadFileMetadataMutation();
+  const [postTaskComment] = usePostTaskCommentMutation();
+  const { data: comments = [], refetch: refetchComments } = useGetTaskCommentsQuery({ taskID: task.taskID }, { skip: !task.taskID });
+  const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
+  const [showComments, setShowComments] = useState(true);
 
-  // Hàm xử lý người dùng được gán việc
+  useEffect(() => {
+    const normalizedComments = comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ? new Date(comment.createdAt).toISOString() : null,
+    }));
+    console.log(normalizedComments);
+  }, [comments]);
+
   const handleAddUser = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUserId = e.target.value;
     const selectedUser = users.find((user) => user.id === selectedUserId);
-
     if (selectedUser) {
-      setAssigneeinfo(selectedUser); // Chỉ gán một người
+      setAssigneeinfo(selectedUser);
     }
   };
 
   const handleRemoveUser = () => {
-    setAssigneeinfo(undefined); // Xóa người nhận task
+    setAssigneeinfo(undefined);
   };
 
-  // Hàm xử lý người theo dõi
   const handleAddWatcher = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUserId = e.target.value;
     const selectedUser = users.find((user) => user.id === selectedUserId);
-
     if (selectedUser && !watchers.some((w) => w.userID === selectedUserId)) {
-      // Chuyển đổi từ TaskUser sang Watcher
       const newWatcher: Watcher = {
         userID: selectedUser.id,
-        fullName: selectedUser.fullName || "", // Xử lý trường hợp undefined
+        fullName: selectedUser.fullName || "",
         dayOfBirth: selectedUser.dayOfBirth || "",
         email: selectedUser.email || "",
         pictureProfile: selectedUser.pictureProfile || "",
       };
-
       setWatcher([...watchers, newWatcher]);
     }
   };
@@ -94,15 +99,13 @@ const EditTaskModal = ({
       toast.warning("Please select a file to upload.");
       return;
     }
-
     const storageRef = ref(storage, `attachments/${newAttachment.name}`);
     const uploadTask = uploadBytesResumable(storageRef, newAttachment);
 
     uploadTask.on(
       "state_changed",
       (snapshot) => {
-        const progress =
-          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         console.log(`Upload progress: ${progress.toFixed(2)}%`);
       },
       (error) => {
@@ -112,7 +115,6 @@ const EditTaskModal = ({
       async () => {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
         console.log("File uploaded:", downloadURL);
-
         const newFile = {
           fileName: newAttachment.name,
           fileUrl: downloadURL,
@@ -123,7 +125,6 @@ const EditTaskModal = ({
         try {
           await uploadFileMetadata(newFile).unwrap();
           toast.success("File uploaded successfully!");
-
           setAttachments((prev) => [
             ...prev,
             { ...newFile, attachmentId: crypto.randomUUID() },
@@ -132,9 +133,8 @@ const EditTaskModal = ({
           console.error("Error saving attachment metadata:", error);
           toast.error("Failed to save file metadata.");
         }
-
         setNewAttachment(null);
-      },
+      }
     );
   };
 
@@ -159,137 +159,135 @@ const EditTaskModal = ({
         attachments,
         updateDate: new Date().toISOString(),
       });
-
       toast.success("Task updated successfully!");
-      onClose(); // Đóng modal sau khi lưu thành công
+      onClose();
     } catch (error) {
       console.error("Error updating task:", error);
       toast.error("Failed to update task. Please try again.");
     }
   };
 
+  const handleAddComment = async () => {
+    if (!newComment.trim()) {
+      toast.warning("Comment cannot be empty.");
+      return;
+    }
+    if (!task?.taskID) {
+      toast.error("Task ID is missing. Cannot add comment.");
+      return;
+    }
+    try {
+      const userString = localStorage.getItem("user");
+      const user = userString ? JSON.parse(userString) : null;
+      if (!user) {
+        toast.error("User not found. Please log in again.");
+        return;
+      }
+      await postTaskComment({
+        taskID: task.taskID,
+        userID: user.id,
+        commentText: newComment,
+      }).unwrap();
+      toast.success("Comment added!");
+      setNewComment("");
+      await refetchComments();
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast.error("Failed to add comment. Please try again.");
+    }
+  };
+
+  const isValidDate = (date: any) => {
+    return date && !isNaN(new Date(date).getTime());
+  };
+
   const isChanged =
     title !== task.title ||
     description !== task.description ||
     priority !== task.priority ||
-    startDate !==
-      (task.startDate ? format(new Date(task.startDate), "yyyy-MM-dd") : "") ||
-    endDate !==
-      (task.endDate ? format(new Date(task.endDate), "yyyy-MM-dd") : "") ||
+    startDate !== (task.startDate ? format(new Date(task.startDate), "yyyy-MM-dd") : "") ||
+    endDate !== (task.endDate ? format(new Date(task.endDate), "yyyy-MM-dd") : "") ||
     tags !== task.tag ||
     status !== task.status ||
     milestoneId !== task.milestoneId ||
     attachments.length !== (task.attachments?.length || 0) ||
     watchers.length !== (task.watchers?.length || 0) ||
-    watchers.some(
-      (user, index) => user.userID !== task.watchers?.[index]?.userID,
-    );
-  assigneeinfo?.id !== task.assigneeInfo?.id; // Không còn lỗi nul
-
-  const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
+    watchers.some((user, index) => user.userID !== task.watchers?.[index]?.userID) ||
+    assigneeinfo?.id !== task.assigneeInfo?.id;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-lg dark:bg-dark-secondary">
+      <div className="w-full max-w-3xl rounded-md bg-white p-4 shadow-lg dark:bg-dark-secondary max-h-[90vh] overflow-auto">
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold dark:text-white">
-            Task Details
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700"
-          >
-            <X size={20} />
+        <div className="flex items-center justify-between border-b pb-2">
+          <h2 className="text-base font-semibold dark:text-white">Task Details</h2>
+          <button onClick={onClose} className="p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
+            <X size={18} />
           </button>
         </div>
 
-        {/* Task Details */}
-        <div className="space-y-4">
+        {/* Nội dung chính */}
+        <div className="mt-3 space-y-3 text-sm">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Task Title
-            </label>
+            <label className="block font-medium dark:text-white">Task Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Description
-            </label>
+            <label className="block font-medium dark:text-white">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="h-24 w-full resize-none rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              rows={3}
             />
           </div>
 
           {/* Attachments */}
           <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Attachments
-            </label>
+            <label className="block font-medium dark:text-white">Attachments</label>
             <div className="flex items-center gap-2">
               <input
                 type="file"
                 onChange={(e) => setNewAttachment(e.target.files?.[0] || null)}
-                className="w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+                className="w-full rounded border border-gray-300 p-1 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
               />
               <button
                 onClick={handleUploadFile}
                 disabled={!newAttachment}
-                className={`rounded-lg px-4 py-2 text-white transition ${
-                  newAttachment
-                    ? "bg-blue-500 hover:bg-blue-600"
-                    : "cursor-not-allowed bg-gray-400"
+                className={`rounded px-3 py-1 text-white transition ${
+                  newAttachment ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400 cursor-not-allowed"
                 }`}
               >
                 Upload
               </button>
             </div>
-            {/* Danh sách file đã upload */}
-            <div className="mt-3 space-y-2">
+            <div className="mt-2 space-y-1">
               {attachments.map((file) => {
-                const isImage = file.fileUrl.match(
-                  /\.(jpeg|jpg|png|gif|webp)$/i,
-                );
+                const isImage = file.fileUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i);
                 return (
                   <div
                     key={file.attachmentId}
-                    className="flex items-center justify-between rounded-lg bg-gray-100 px-3 py-2 shadow-sm transition hover:bg-gray-200 dark:bg-dark-tertiary"
+                    className="flex items-center justify-between rounded bg-gray-100 px-2 py-1 dark:bg-dark-tertiary"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {isImage ? (
-                        <img
-                          src={file.fileUrl}
-                          alt={file.fileName}
-                          className="h-12 w-12 rounded border object-cover"
-                        />
+                        <img src={file.fileUrl} alt={file.fileName} className="h-10 w-10 rounded object-cover" />
                       ) : (
-                        <span className="text-gray-700 dark:text-white">
-                          📄
-                        </span>
+                        <span>📄</span>
                       )}
-                      <a
-                        href={file.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400"
-                      >
+                      <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400">
                         {file.fileName}
                       </a>
                     </div>
-                    <button
-                      onClick={() => handleRemoveAttachment(file.attachmentId)}
-                      className="text-red-500 transition hover:text-red-700"
-                    >
+                    <button onClick={() => handleRemoveAttachment(file.attachmentId)} className="text-red-500">
                       ❌
                     </button>
                   </div>
@@ -298,157 +296,181 @@ const EditTaskModal = ({
             </div>
           </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Status
-            </label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
-            >
-              <option value={Status.ToDo}>To Do</option>
-              <option value={Status.WorkInProgress}>Work In Progress</option>
-              <option value={Status.UnderReview}>Under Review</option>
-              <option value={Status.Completed}>Completed</option>
-            </select>
-          </div>
-
-          {/* Assignee */}
-          <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Assigned To
-            </label>
-            <select
-              onChange={handleAddUser}
-              className="mt-2 w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
-              value={assigneeinfo?.id || ""}
-            >
-              <option value="">Select User</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.fullName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Watchers */}
-          <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Watchers
-            </label>
-            <select
-              onChange={handleAddWatcher}
-              className="mt-2 w-full rounded-lg border p-2 shadow-sm focus:ring-2 focus:ring-blue-500 dark:bg-dark-tertiary dark:text-white"
-            >
-              <option value="">Add Watcher</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.fullName}
-                </option>
-              ))}
-            </select>
-
-            <div className="mt-2 space-y-2">
-              {watchers.map((user) => (
-                <div
-                  key={user.userID}
-                  className="flex items-center justify-between rounded-lg bg-gray-100 px-3 py-1 shadow-sm transition hover:bg-gray-200"
-                >
-                  <span>{user.fullName}</span>
-                  <button
-                    onClick={() => handleRemoveWatcher(user.userID)}
-                    className="text-red-500 transition hover:text-red-700"
-                  >
-                    ❌
-                  </button>
-                </div>
-              ))}
+          {/* Status & Priority */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-medium dark:text-white">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              >
+                <option value={Status.ToDo}>To Do</option>
+                <option value={Status.WorkInProgress}>Work In Progress</option>
+                <option value={Status.UnderReview}>Under Review</option>
+                <option value={Status.Completed}>Completed</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-medium dark:text-white">Priority</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskType["priority"])}
+                className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
             </div>
           </div>
 
-          {/* Priority */}
-          <div>
-            <label className="block text-sm font-medium dark:text-white">
-              Priority
-            </label>
-            <select
-              value={priority}
-              onChange={(e) =>
-                setPriority(e.target.value as TaskType["priority"])
-              }
-              className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Urgent">Urgent</option>
-            </select>
-          </div>
-
-          {/* Date Fields */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium dark:text-white">
-                Start Date
-              </label>
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-medium dark:text-white">Start Date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+                className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
               />
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium dark:text-white">
-                Due Date
-              </label>
+            <div>
+              <label className="block font-medium dark:text-white">Due Date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+                className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
               />
             </div>
           </div>
 
+          {/* Assignee & Watchers */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-medium dark:text-white">Assigned To</label>
+              <select
+                onChange={handleAddUser}
+                value={assigneeinfo?.id || ""}
+                className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              >
+                <option value="">Select User</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.fullName}
+                  </option>
+                ))}
+              </select>
+              {assigneeinfo && (
+                <button onClick={handleRemoveUser} className="mt-1 text-xs text-red-500">
+                  Remove assignee
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="block font-medium dark:text-white">Watchers</label>
+              <select
+                onChange={handleAddWatcher}
+                className="w-full rounded border border-gray-300 p-2 focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+              >
+                <option value="">Add Watcher</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.fullName}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-1 space-y-1">
+                {watchers.map((user) => (
+                  <div key={user.userID} className="flex items-center justify-between rounded bg-gray-100 px-2 py-1 dark:bg-dark-tertiary">
+                    <span>{user.fullName}</span>
+                    <button onClick={() => handleRemoveWatcher(user.userID)} className="text-xs text-red-500">
+                      ❌
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Action Buttons */}
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="rounded-lg bg-gray-400 px-5 py-2 text-white transition hover:bg-gray-500"
-            >
+          <div className="flex items-center justify-end gap-2 border-t pt-2">
+            <button onClick={onClose} className="rounded bg-gray-400 px-3 py-1 text-white hover:bg-gray-500 text-xs">
               Cancel
             </button>
             <button
               onClick={() => setIsRequestAssetOpen(true)}
-              className="rounded-lg bg-green-500 px-5 py-2 text-white transition hover:bg-green-600"
+              className="rounded bg-green-500 px-3 py-1 text-white hover:bg-green-600 text-xs"
             >
               Request Asset
             </button>
             <button
               onClick={handleSave}
               disabled={!isChanged}
-              className={`rounded-lg px-5 py-2 text-white transition ${
-                isChanged
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "cursor-not-allowed bg-gray-400"
-              }`}
+              className={`rounded px-3 py-1 text-white text-xs transition ${isChanged ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400 cursor-not-allowed"}`}
               title={!isChanged ? "No changes detected ❌" : ""}
             >
               Save Changes
             </button>
           </div>
+
+          {/* Comments Section (toggle hiển thị) */}
+          <div className="border-t pt-2">
+            <div className="flex items-center justify-between">
+              <label className="font-medium dark:text-white">Comments</label>
+              <button onClick={() => setShowComments((prev) => !prev)} className="text-xs text-blue-500">
+                {showComments ? "Hide" : "Show"}
+              </button>
+            </div>
+            {showComments && (
+              <>
+                <div className="mt-2 max-h-40 overflow-y-auto rounded bg-gray-100 p-2 dark:bg-dark-tertiary">
+                  {comments.length > 0 ? (
+                    comments.map((comment) => (
+                      <div key={comment.commentID} className="mb-1 flex items-start gap-2 rounded bg-white p-2 shadow-sm dark:bg-dark-secondary">
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-700 dark:text-gray-200">{comment.commentText}</p>
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {isValidDate(comment.createdDate)
+                              ? format(new Date(String(comment.createdDate)), "dd/MM/yyyy HH:mm")
+                              : "Unknown Date"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No comments yet.</p>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 rounded border border-gray-300 p-2 text-xs focus:outline-blue-500 dark:border-gray-600 dark:bg-dark-tertiary dark:text-white"
+                  />
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!newComment.trim()}
+                    className={`rounded px-3 py-1 text-white text-xs transition ${
+                      newComment.trim() ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    Add
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Hiển thị Modal Request Asset khi mở */}
+        {/* Asset Request Modal */}
         {isRequestAssetOpen && (
-          <AssetRequestSelector
-            taskId={task.taskID}
-            onClose={() => setIsRequestAssetOpen(false)}
-          />
+          <AssetRequestSelector taskId={task.taskID} onClose={() => setIsRequestAssetOpen(false)} />
         )}
       </div>
     </div>
