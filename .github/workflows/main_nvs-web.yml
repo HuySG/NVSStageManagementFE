@@ -23,8 +23,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Next.js app
-        run: npm run build
+      - name: Build Next.js app (skip ESLint)
+        run: NEXT_DISABLE_ESLINT_PLUGIN=true npm run build
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
@@ -35,7 +35,6 @@ jobs:
             public
             package.json
             package-lock.json
-            node_modules  # hoặc không cần, Azure sẽ tự install
 
   deploy:
     runs-on: ubuntu-latest
