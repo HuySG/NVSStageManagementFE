@@ -70,7 +70,7 @@ const Sidebar = () => {
                 dispatch(setIsSidebarCollapsed(!isSidebarCollapsed));
               }}
             >
-              <X className="hover: h-6 w-6  text-gray-800 dark:text-white" />
+              <X className="hover: h-6 w-6 text-gray-800 dark:text-white" />
             </button>
           )}
         </div>
@@ -106,6 +106,11 @@ const Sidebar = () => {
                 icon={FileChartPie}
                 label="Request Status"
                 href="/requestApprove"
+              />
+              <SidebarLink
+                icon={FileChartPie}
+                label="Asset Borrowed"
+                href="/borrowedAssetsForProject"
               />
             </>
           )}
@@ -183,8 +188,8 @@ const Sidebar = () => {
             />
           </>
         )}
-        <UserProfile />
       </div>
+      <UserProfile />
     </div>
   );
 };

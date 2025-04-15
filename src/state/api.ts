@@ -221,6 +221,22 @@ export type Booking = {
   assetID: string;
 };
 
+export interface BorrowedAsset {
+  borrowedId: string;
+  assetID: string;
+  taskID: string;
+  borrowTime: string;
+  endTime: string;
+  description: string;
+  status: string;
+}
+export interface RequesterInfo {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  department: Department;
+}
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -245,6 +261,7 @@ export const api = createApi({
     "Assets",
     "Attachments",
     "Events",
+    "BorrowedAssets",
   ],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
@@ -432,6 +449,11 @@ export const api = createApi({
       invalidatesTags: ["AssetRequests"],
     }),
 
+    getAssetRequestsForManager: build.query<AssetRequest[], void>({
+      query: () => "request-asset/asset-manager",
+      providesTags: ["AssetRequests"],
+    }),
+
     // 📌 Thêm API để lấy danh sách milestone theo project
     getMilestonesByProject: build.query<Milestone[], { projectID: string }>({
       query: ({ projectID }) => `milestones/project/${projectID}`,
@@ -460,9 +482,14 @@ export const api = createApi({
         url: `tasks/archive/taskId?id=${taskId}`,
         method: "POST",
       }),
-      invalidatesTags: (result, error, { taskId }) => [{ type: "Tasks", id: taskId }],
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: "Tasks", id: taskId },
+      ],
     }),
-    postTaskComment: build.mutation<Comment, { taskID: string; userID: string; commentText: string }>({
+    postTaskComment: build.mutation<
+      Comment,
+      { taskID: string; userID: string; commentText: string }
+    >({
       query: (commentData) => {
         console.log("Payload being sent to API:", commentData);
         if (!commentData.taskID) {
@@ -492,6 +519,21 @@ export const api = createApi({
     }),
     getEventsByMilestone: build.query({
       query: ({ milestoneId }) => `/events/milestone/${milestoneId}`,
+    }),
+    getBorrowedAssets: build.query<BorrowedAsset[], void>({
+      query: () => "borrowed-assets",
+      providesTags: ["BorrowedAssets"],
+    }),
+    getAssetsBorrowed: build.query<Asset[], void>({
+      query: () => ({
+        url: "asset",
+        method: "GET",
+      }),
+      providesTags: ["Assets"],
+    }),
+    getTaskById: build.query<Task, string>({
+      query: (taskId) => `tasks/taskId?taskId=${taskId}`,
+      providesTags: ["Tasks"],
     }),
   }),
 });
@@ -545,6 +587,8 @@ export const {
   useGetRequestAssetByDepartmentQuery,
   //updateAssetStatus
   useUpdateAssetStatusMutation,
+  //getAssetRequestsForManager
+  useGetAssetRequestsForManagerQuery,
   //getMilestonesByProject
   useGetMilestonesByProjectQuery,
   //getTaskComments
@@ -559,4 +603,10 @@ export const {
   useGetRequestsByTaskQuery,
   //getEventsByMilestone
   useLazyGetEventsByMilestoneQuery,
+  //getBorrowedAssets
+  useGetBorrowedAssetsQuery,
+  //getAssetsBorrowed
+  useGetAssetsBorrowedQuery,
+  //getTaskById
+  useGetTaskByIdQuery,
 } = api;

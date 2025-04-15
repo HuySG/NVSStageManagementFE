@@ -38,16 +38,16 @@ const AssetRequestSelector = ({ taskId, onClose }: RequestAssetModalProps) => {
             value={selectedRequestType}
           >
             <option value="">Select Request Type</option>
-            <option value="normal">Normal Request</option>
+            {/* <option value="normal">Normal Request</option> */}
             <option value="booking">Request by Booking</option>
             <option value="category">Request by Category</option>
           </select>
         </div>
 
         {/* Hiển thị modal tương ứng với lựa chọn */}
-        {selectedRequestType === "normal" && (
+        {/* {selectedRequestType === "normal" && (
           <RequestAssetModal taskId={taskId} onClose={onClose} />
-        )}
+        )} */}
         {selectedRequestType === "booking" && (
           <RequestBookingAssetModal taskId={taskId} onClose={onClose} />
         )}
