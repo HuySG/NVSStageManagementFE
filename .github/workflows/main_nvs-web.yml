@@ -23,6 +23,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run ESLint (non-blocking)
+        run: |
+          npm run lint || true
+
       - name: Build Next.js app (skip ESLint)
         run: NEXT_DISABLE_ESLINT_PLUGIN=true npm run build
 
