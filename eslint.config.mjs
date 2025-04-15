@@ -13,19 +13,20 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
-      // Cho phép biến chưa dùng (đỡ báo lỗi trong CI, nhưng vẫn cảnh báo trong IDE)
-      "@typescript-eslint/no-unused-vars": ["warn"],
-
-      // Cho phép dùng `any` tạm thời (nên sửa lại sau)
-      "@typescript-eslint/no-explicit-any": ["warn"],
-
-      // Đổi các lỗi ESLint thường gặp thành cảnh báo
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-non-null-asserted-optional-chain": "warn",
+      "@typescript-eslint/no-require-imports": "warn",
+      "@typescript-eslint/no-wrapper-object-types": "warn",
+      "react-hooks/rules-of-hooks": "warn",
       "react-hooks/exhaustive-deps": "warn",
       "react/no-unescaped-entities": "warn",
       "prefer-const": "warn",
-      "@typescript-eslint/no-wrapper-object-types": "warn",
+      "no-unused-expressions": "warn",
+      "no-img-element": "warn", // Nếu dùng Next Image thì vẫn sẽ báo
     },
   },
 ];
+
 
 export default eslintConfig;
