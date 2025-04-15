@@ -56,5 +56,5 @@ jobs:
         with:
           app-name: "NVS-web"
           slot-name: "Production"
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_725A5409556D4BD89159C5FA8A504221 }}
           package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_725A5409556D4BD89159C5FA8A504221 }}
