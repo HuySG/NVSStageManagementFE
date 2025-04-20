@@ -40,10 +40,11 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
   const [editingTask, setEditingTask] = useState<TaskType | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const { data: taskRequests, isLoading: isLoadingRequests } = useGetRequestsByTaskQuery(
-    selectedTaskId ?? "",
-    { skip: !selectedTaskId } // Chỉ fetch khi có taskId
-  );
+  const { data: taskRequests, isLoading: isLoadingRequests } =
+    useGetRequestsByTaskQuery(
+      selectedTaskId ?? "",
+      { skip: !selectedTaskId }, // Chỉ fetch khi có taskId
+    );
 
   const handleTaskClick = (taskId: string) => {
     setSelectedTaskId(taskId);
@@ -125,7 +126,6 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
                 setEditingTask(task);
                 handleTaskClick(task.taskID);
               }}
-          
               onDeleteTask={async (taskId) => {
                 await updateTask({ taskID: taskId, status: "Deleted" });
                 refetch();
@@ -135,44 +135,44 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
         </div>
       </DndProvider>
 
-    {editingTask && (
-  <div className="fixed inset-0 z-40 flex items-start justify-between backdrop-blur-sm">
-    {/* Modal Task Detail */}
-    <div className="flex-shrink-0">
-    <EditTaskModal
-      task={editingTask}
-      users={
-        users
-          ? users.map((user) => ({
-              id: user.id,
-              fullName: user.fullName || "",
-              dayOfBirth: user.dayOfBirth || "",
-              email: user.email,
-              password: user.password,
-              department: user.department,
-              pictureProfile: user.pictureProfile || "",
-              createDate: user.createDate,
-              role: user.role || { id: 0, roleName: "Unknown" },
-              status: user.status,
-              taskUsers: user.TaskUser || [],
-            }))
-          : []
-      }
-      onClose={() => setEditingTask(null)}
-      onSave={handleTaskEdit}
-    />
- </div>
-    {/* Modal List Request */}
-    {isRequestModalOpen && (
-      <div className="flex-shrink-0 mt-16 mr-12">
-        <RequestListModal
-          requests={taskRequests || []}
-          onClose={closeRequestModal}
-        />
-      </div>
-    )}
-  </div>
-)}
+      {editingTask && (
+        <div className="fixed inset-0 z-40 flex items-start justify-between backdrop-blur-sm">
+          {/* Modal Task Detail */}
+          <div className="flex-shrink-0">
+            <EditTaskModal
+              task={editingTask}
+              users={
+                users
+                  ? users.map((user) => ({
+                      id: user.id,
+                      fullName: user.fullName || "",
+                      dayOfBirth: user.dayOfBirth || "",
+                      email: user.email,
+                      password: user.password,
+                      department: user.department,
+                      pictureProfile: user.pictureProfile || "",
+                      createDate: user.createDate,
+                      role: user.role || { id: 0, roleName: "Unknown" },
+                      status: user.status,
+                      taskUsers: user.TaskUser || [],
+                    }))
+                  : []
+              }
+              onClose={() => setEditingTask(null)}
+              onSave={handleTaskEdit}
+            />
+          </div>
+          {/* Modal List Request */}
+          {isRequestModalOpen && (
+            <div className="mr-12 mt-16 flex-shrink-0">
+              <RequestListModal
+                requests={taskRequests || []}
+                onClose={closeRequestModal}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 };
@@ -268,10 +268,14 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
       isDragging: !!monitor.isDragging(),
     }),
   }));
-  const { data: taskRequests, isLoading, error } = useGetRequestsByTaskQuery(task.taskID);
- 
+  const {
+    data: taskRequests,
+    isLoading,
+    error,
+  } = useGetRequestsByTaskQuery(task.taskID);
+
   const hasRequests = taskRequests && taskRequests.length > 0;
-  
+
   const taskTagsSplit = task.tag ? task.tag.split(",") : [];
   const formattedStartDate = task.startDate
     ? format(new Date(task.startDate), "P")
@@ -286,12 +290,12 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
   const handleArchiveTask = async (taskId: string) => {
     try {
       await archiveTask({ taskId }).unwrap();
-      setErrorMessage(null); 
+      setErrorMessage(null);
       alert("Task archived successfully!");
     } catch (error: any) {
       console.error("Error archiving task:", error);
       if (error.data?.error) {
-        setErrorMessage(error.data.error); 
+        setErrorMessage(error.data.error);
       } else {
         setErrorMessage("An unexpected error occurred.");
       }
@@ -401,16 +405,16 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
                     Delete Task
                   </button>
                   <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  archiveTask({ taskId: task.taskID });
-                  setShowOptions(false);
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2 text-blue-500 hover:bg-gray-100 dark:hover:bg-dark-tertiary"
-              >
-                <Archive size={18} />
-                Archive Task
-              </button>
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      archiveTask({ taskId: task.taskID });
+                      setShowOptions(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-blue-500 hover:bg-gray-100 dark:hover:bg-dark-tertiary"
+                  >
+                    <Archive size={18} />
+                    Archive Task
+                  </button>
                 </div>
               )}
             </div>
@@ -527,4 +531,3 @@ const Task = ({ task, onEditTask, onDeleteTask }: TaskProps) => {
 };
 
 export default BoardView;
-

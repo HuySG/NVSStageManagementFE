@@ -1,4 +1,4 @@
-"use client";
+"use client"; // Bỏ dòng này nếu không cần sử dụng client component
 import React, { useState } from "react";
 
 import ModalNewTask from "@/components/ModalNewTask";
@@ -8,21 +8,17 @@ import ListView from "@/app/Projects/ListView";
 import Timeline from "@/app/Projects/TimelineView";
 import TableView from "@/app/Projects/TableView";
 
-type Props = {
-  params: {
-    id: string;
-    milestoneId: string;
-  };
-};
-
-const MilestoneTasksPage = ({ params }: Props) => {
+const MilestoneTasksPage = ({
+  params,
+}: {
+  params: { id: string; milestoneId: string };
+}) => {
   const { milestoneId } = params;
   const [activeTab, setActiveTab] = useState("Board");
   const [isModalNewTaskOpen, setIsModalNewTaskOpen] = useState(false);
 
   return (
     <div>
-      {/* MODAL NEW TASK */}
       <ModalNewTask
         isOpen={isModalNewTaskOpen}
         onClose={() => setIsModalNewTaskOpen(false)}
