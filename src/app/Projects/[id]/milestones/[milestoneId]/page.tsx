@@ -9,7 +9,10 @@ import Timeline from "@/app/Projects/TimelineView";
 import TableView from "@/app/Projects/TableView";
 
 type Props = {
-  params: { milestoneId: string };
+  params: {
+    id: string;
+    milestoneId: string;
+  };
 };
 
 const MilestoneTasksPage = ({ params }: Props) => {
