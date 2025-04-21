@@ -13,25 +13,35 @@ type RequestAssetCategoryModalProps = {
   onClose: () => void;
 };
 
-const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModalProps) => {
+const RequestAssetCategoryModal = ({
+  taskId,
+  onClose,
+}: RequestAssetCategoryModalProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [selectedAssetTypeId, setSelectedAssetTypeId] = useState("");
   const [categories, setCategories] = useState<AssetCategory[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<{
-    categoryID: string;
-    quantity: number;
-  }[]>([]);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [selectedCategories, setSelectedCategories] = useState<
+    {
+      categoryID: string;
+      quantity: number;
+    }[]
+  >([]);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
 
-  const { data: assetTypes = [], isLoading: assetTypesLoading } = useGetAssetTypesQuery();
+  const { data: assetTypes = [], isLoading: assetTypesLoading } =
+    useGetAssetTypesQuery();
   const [createCategoryRequest, { isLoading: isSubmitting, isSuccess, error }] =
     useCreateAssetRequestCategoryMutation();
 
   useEffect(() => {
-    const selectedType = assetTypes.find((type: AssetType) => type.id === selectedAssetTypeId);
+    const selectedType = assetTypes.find(
+      (type: AssetType) => type.id === selectedAssetTypeId,
+    );
     setCategories(selectedType?.categories ?? []);
     setSelectedCategories([]);
   }, [selectedAssetTypeId, assetTypes]);
@@ -56,7 +66,7 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
 
   const updateQuantity = (categoryId: string, quantity: number) => {
     setSelectedCategories((prev) =>
-      prev.map((c) => (c.categoryID === categoryId ? { ...c, quantity } : c))
+      prev.map((c) => (c.categoryID === categoryId ? { ...c, quantity } : c)),
     );
   };
 
@@ -79,7 +89,8 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
 
     selectedCategories.forEach((cat) => {
       if (cat.quantity <= 0 || !Number.isInteger(cat.quantity)) {
-        errors[`quantity-${cat.categoryID}`] = "Quantity must be an integer greater than 0";
+        errors[`quantity-${cat.categoryID}`] =
+          "Quantity must be an integer greater than 0";
       }
     });
 
@@ -91,7 +102,11 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
     if (!error) return null;
 
     if ("status" in error) {
-      if (error.data && typeof error.data === "object" && "message" in error.data) {
+      if (
+        error.data &&
+        typeof error.data === "object" &&
+        "message" in error.data
+      ) {
         return error.data.message;
       }
       if (typeof error.data === "string") {
@@ -116,7 +131,16 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
       description,
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
-      categories: selectedCategories.map((c) => ({ categoryID: c.categoryID, quantity: c.quantity })),
+      categories: selectedCategories.map((c) => {
+        const matched = categories.find(
+          (cat) => cat.categoryID === c.categoryID,
+        );
+        return {
+          categoryID: c.categoryID,
+          quantity: c.quantity,
+          name: matched?.name ?? "", // đảm bảo có `name`
+        };
+      }),
     };
 
     try {
@@ -195,9 +219,14 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
           </label>
           <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
             {categories.map((cat) => {
-              const selected = selectedCategories.find((c) => c.categoryID === cat.categoryID);
+              const selected = selectedCategories.find(
+                (c) => c.categoryID === cat.categoryID,
+              );
               return (
-                <div key={cat.categoryID} className="flex items-center justify-between gap-2">
+                <div
+                  key={cat.categoryID}
+                  className="flex items-center justify-between gap-2"
+                >
                   <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
@@ -213,7 +242,10 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
                       min={1}
                       value={selected.quantity}
                       onChange={(e) =>
-                        updateQuantity(cat.categoryID, Math.max(1, parseInt(e.target.value) || 1))
+                        updateQuantity(
+                          cat.categoryID,
+                          Math.max(1, parseInt(e.target.value) || 1),
+                        )
                       }
                       className="w-20 rounded border border-gray-300 p-1 text-center dark:bg-dark-tertiary dark:text-white"
                     />
@@ -223,7 +255,9 @@ const RequestAssetCategoryModal = ({ taskId, onClose }: RequestAssetCategoryModa
             })}
           </div>
           {getErrorMessage("categories")}
-          {categories.map((cat) => getErrorMessage(`quantity-${cat.categoryID}`))}
+          {categories.map((cat) =>
+            getErrorMessage(`quantity-${cat.categoryID}`),
+          )}
         </div>
 
         {/* Time Range */}

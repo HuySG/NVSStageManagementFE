@@ -66,11 +66,8 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
     { refetchOnMountOrArgChange: true },
   );
 
-  console.log("id:", id);
-
   const { data: currentUser } = useGetUserInfoQuery(undefined);
   const userId = currentUser?.id;
-  console.log("Current User ID:", userId);
   const departmentUser = currentUser?.department?.id;
   const { data: tasksByUser, error: userTasksError } = useGetTasksByUserQuery(
     userId ?? "",
@@ -82,20 +79,13 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
     userRole === "Leader"
       ? tasksByMilestone
       : tasksByUser?.filter((task) => task.milestoneId === id) || [];
-  console.log("User Role:", userRole);
-  console.log("Tasks by Milestone:", tasksByMilestone);
-  console.log("Tasks by User:", tasksByUser);
-  console.log("User Role:", userRole);
-  console.log("Tasks:", tasks);
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
   const [updateTask] = useUpdateTaskMutation();
   const { data: users } = useGetUserByDepartmentQuery(departmentUser!);
-  console.log("Users data:", users);
   const moveTask = async (taskId: string, toStatus: string) => {
     await updateTaskStatus({ taskId, status: toStatus });
     refetch(); // Fetch lại danh sách task ngay sau khi update
   };
-  console.log("Tasks data:", tasks);
 
   const handleTaskEdit = async (updatedTask: Partial<TaskType>) => {
     if (editingTask) {
