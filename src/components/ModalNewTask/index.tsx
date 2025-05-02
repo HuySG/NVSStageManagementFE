@@ -5,6 +5,7 @@ import {
   Status,
   TaskUser,
   useCreateTaskMutation,
+  useGetUserInfoQuery,
   useGetUsersQuery,
 } from "@/state/api";
 import { format, formatISO } from "date-fns";
@@ -32,6 +33,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const params = useParams();
+  const { data: currentUser } = useGetUserInfoQuery();
 
   // Lấy projectId từ URL, đảm bảo kiểu dữ liệu là string
   const projectIdFromUrl = Array.isArray(params.milestoneId)
@@ -182,6 +184,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
         endDate: formattedDueDate,
         attachments: taskAttachments,
         milestoneId: milestoneId,
+        createBy: currentUser?.id, // 👈 Thêm dòng này
       });
 
       onClose();
@@ -375,59 +378,6 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
           )}
         </div>
 
-        {/* <select
-          className="w-full rounded border border-gray-300 p-2 dark:bg-dark-tertiary dark:text-white"
-          value={assignedUsers.map((u) => u.userID)}
-          onChange={(e) => {
-            const selectedUser = users?.find(
-              (user) => user.id === e.target.value,
-            );
-            if (
-              selectedUser &&
-              !assignedUsers.some((u) => u.userID === selectedUser.id)
-            )
-              if (selectedUser) {
-                const newTaskUser: TaskUser = {
-                  userID: selectedUser.id ?? "", // Nếu không có userID, gán giá trị mặc định
-                  fullName: selectedUser.fullName,
-                  dayOfBirth: selectedUser.dayOfBirth || "",
-                  email: selectedUser.email || "",
-                  pictureProfile: selectedUser.pictureProfile || "",
-                };
-
-                setAssignedUsers([...assignedUsers, newTaskUser]);
-              }
-          }}
-        >
-          <option value="">Select Assignee</option>
-          {Array.isArray(users) ? (
-            users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.fullName}
-              </option>
-            ))
-          ) : (
-            <option disabled>Không có dữ liệu</option>
-          )}
-        </select> */}
-        {/* <div>
-          {assignedUsers.map((user) => (
-            <div key={user.userID} className="flex items-center gap-2">
-              <span>{user.fullName}</span>
-              <button
-                type="button"
-                className="text-red-500"
-                onClick={() =>
-                  setAssignedUsers(
-                    assignedUsers.filter((u) => u.userID !== user.userID),
-                  )
-                }
-              >
-                ❌
-              </button>
-            </div>
-          ))}
-        </div> */}
         {id === null && (
           <input
             type="text"
