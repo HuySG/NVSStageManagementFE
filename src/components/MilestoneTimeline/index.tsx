@@ -11,7 +11,7 @@ import { FaFlagCheckered } from "react-icons/fa";
 import { useState } from "react";
 import Header from "../Header";
 import ModalNewProject from "@/app/Projects/ModalNewProject";
-import EventListModal from "../EventInfoModal/EventListModal";
+
 import { PlusSquare } from "lucide-react";
 import "./index.css"
 type Props = { projectID: string };
@@ -67,13 +67,7 @@ export default function MilestoneTimeline({ projectID }: Props) {
       />
 
       {/* Modal hiển thị danh sách event của milestone */}
-      <EventListModal
-        isOpen={isEventModalOpen}
-        onClose={() => setIsEventModalOpen(false)}
-        events={eventList}
-        isLoading={eventsLoading}
-        error={eventsError}
-      />
+
 
       {/* HEADER */}
       <div className="pb-6 pt-6 text-center lg:pb-4 lg:pt-8">
