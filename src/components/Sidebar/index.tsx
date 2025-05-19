@@ -126,6 +126,11 @@ const Sidebar = () => {
                 label="Request Status"
                 href="/requestApprove"
               />
+              <SidebarLink
+                icon={FileChartPie}
+                label="My Request"
+                href="/borrowed-assets"
+              />
             </>
           )}
         </nav>
@@ -150,44 +155,6 @@ const Sidebar = () => {
               href={`/Projects/${project.projectID}`}
             />
           ))}
-
-        {/* PRIORITIES LINK */}
-        <button
-          onClick={() => setShowPriority((prev) => !prev)}
-          className="flex w-full items-center justify-between px-8 py-3 text-gray-500"
-        >
-          <span className=""> Priority</span>
-          {showPriority ? (
-            <ChevronUp className="h-5 w-5" />
-          ) : (
-            <ChevronDown className="h-5 w-5" />
-          )}
-        </button>
-        {showPriority && (
-          <>
-            <SidebarLink
-              icon={AlertCircle}
-              label="Urgent"
-              href="/priority/urgent"
-            />
-            <SidebarLink
-              icon={ShieldAlert}
-              label="High"
-              href="/priority/high"
-            />
-            <SidebarLink
-              icon={AlertTriangle}
-              label="Medium"
-              href="/priority/medium"
-            />
-            <SidebarLink icon={AlertOctagon} label="Low" href="/priority/low" />
-            <SidebarLink
-              icon={Layers3}
-              label="Backlog"
-              href="/priority/backlog"
-            />
-          </>
-        )}
       </div>
       <UserProfile />
     </div>

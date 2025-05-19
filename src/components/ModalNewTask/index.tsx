@@ -227,7 +227,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-1 sm:gap-2">
           <select
             className={selectStyles}
             value={status}
@@ -241,29 +241,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
             <option value={Status.UnderReview}>Under Review</option>
             <option value={Status.Completed}>Completed</option>
           </select>
-          <select
-            className={selectStyles}
-            value={priority}
-            onChange={(e) =>
-              setPriority(Priority[e.target.value as keyof typeof Priority])
-            }
-          >
-            <option value="">Select Priority</option>
-            <option value={Priority.Urgent}>Urgent</option>
-            <option value={Priority.High}>High</option>
-            <option value={Priority.Medium}>Medium</option>
-            <option value={Priority.Low}>Low</option>
-            <option value={Priority.Backlog}>Backlog</option>
-          </select>
         </div>
-        <input
-          type="text"
-          className={inputStyles}
-          placeholder="Tags (comma separated)"
-          value={tag}
-          onChange={(e) => setTag(e.target.value)}
-        />
-
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
           <input
             type="date"
@@ -277,105 +255,6 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
-        </div>
-
-        {/* File upload section */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Attachments</span>
-            <input
-              type="file"
-              multiple
-              onChange={handleFileChange}
-              className="hidden"
-              ref={fileInputRef}
-            />
-            <button
-              type="button"
-              className="rounded bg-blue-100 px-3 py-1 text-sm text-blue-600 dark:bg-blue-900 dark:text-blue-200"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Add Files
-            </button>
-          </div>
-          {/* List of files to be uploaded */}
-          {files.length > 0 && (
-            <div className="mt-2 space-y-2">
-              <div className="text-sm font-medium">Files to upload:</div>
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between rounded bg-gray-50 p-2 dark:bg-dark-tertiary"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{file.name}</span>
-                    <span className="text-xs text-gray-500">
-                      ({(file.size / 1024).toFixed(2)} KB)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="text-red-500"
-                    onClick={() => removeFile(index)}
-                  >
-                    ❌
-                  </button>
-                </div>
-              ))}
-              {!isUploading && files.length > 0 && (
-                <button
-                  type="button"
-                  className="mt-2 rounded bg-green-100 px-3 py-1 text-sm text-green-600 dark:bg-green-900 dark:text-green-200"
-                  onClick={uploadFilesToAzure}
-                >
-                  Upload Files
-                </button>
-              )}
-            </div>
-          )}
-          {/* Upload progress */}
-          {isUploading && (
-            <div className="mt-2">
-              <div className="text-sm">Uploading... {uploadProgress}%</div>
-              <div className="mt-1 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                  className="h-2 rounded-full bg-blue-600"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
-          {/* List of uploaded attachments */}
-          {attachments.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <div className="text-sm font-medium">Uploaded attachments:</div>
-              {attachments.map((attachment, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between rounded bg-gray-50 p-2 dark:bg-dark-tertiary"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{attachment.fileName}</span>
-                    <a
-                      href={attachment.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-500"
-                    >
-                      (View)
-                    </a>
-                  </div>
-                  <button
-                    type="button"
-                    className="text-red-500"
-                    onClick={() => removeAttachment(index)}
-                  >
-                    ❌
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {id === null && (

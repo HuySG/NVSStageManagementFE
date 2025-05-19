@@ -11,6 +11,7 @@ export interface Project {
   createdBy: string;
   tasks: Task[];
   taskID: string;
+  milestones?: Milestone; // Thêm thuộc tính milestones
 }
 
 export interface Milestone {
@@ -191,7 +192,23 @@ export interface AssetRequest {
   approvedByAMTime: string;
   approvedByDLName: string;
   approvedByDLTime: string;
+  recurrenceType: "NONE" | "DAILY" | "WEEKLY" | "MONTHLY";
+  recurrenceInterval: number; // khoảng cách lặp (mỗi 1 tuần, 2 tuần...)
+  recurrenceEndDate: string; // ngày kết thúc
+  selectedDays?: DayOfWeek[]; // chỉ áp dụng nếu là WEEKLY
+  dayOfMonth?: number; // áp dụng nếu là MONTHLY
+  fallbackToLastDay?: boolean; // nếu dayOfMonth > số ngày trong tháng
+  bookingType?: string; // kiểu booking, nếu bạn có phân loại thêm
+  recurrenceCount?: number; // số lần đã sinh ra (dựa theo số slot)
 }
+export type DayOfWeek =
+  | "MONDAY"
+  | "TUESDAY"
+  | "WEDNESDAY"
+  | "THURSDAY"
+  | "FRIDAY"
+  | "SATURDAY"
+  | "SUNDAY";
 
 export interface CategoryRequestItem {
   categoryID: string;
@@ -237,6 +254,39 @@ export interface RequesterInfo {
   phoneNumber: string;
   department: Department;
 }
+export interface StaffBorrowedAsset {
+  borrowedID: string;
+  assetId: string;
+  assetName: string;
+  taskId: string;
+  taskTitle: string;
+  borrowTime: string;
+  startTime: string;
+  endTime: string;
+  status: "IN_USE" | "OVERDUE";
+  projectId: string;
+}
+export interface ReturnRequestInput {
+  assetId: string;
+  taskId?: string;
+  description: string;
+  conditionNote: string;
+  imageUrl?: string;
+}
+export interface ReturnRequest {
+  requestId: string;
+  assetId: string;
+  taskId: string;
+  staffId: string;
+  description: string | null;
+  conditionNote: string;
+  imageUrl: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestTime: string;
+  rejectReason: string | null;
+  processedTime: string | null;
+}
+
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -262,6 +312,8 @@ export const api = createApi({
     "Attachments",
     "Events",
     "BorrowedAssets",
+    "Asset",
+    "ReturnRequest",
   ],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
@@ -380,7 +432,7 @@ export const api = createApi({
         method: "POST",
         body: [assetRequest],
       }),
-      invalidatesTags: ["AssetRequests"], // Xóa cache để cập nhật dữ liệu mới
+      invalidatesTags: ["AssetRequests"],
     }),
     // 📌 Tạo yêu cầu tài sản theo Booking
     createAssetRequestBooking: build.mutation<
@@ -535,6 +587,41 @@ export const api = createApi({
       query: (taskId) => `tasks/taskId?taskId=${taskId}`,
       providesTags: ["Tasks"],
     }),
+    getStaffBorrowedAssets: build.query<StaffBorrowedAsset[], string>({
+      query: (staffId) => `borrowed-assets/staff/${staffId}`,
+      transformResponse: (response: { result: StaffBorrowedAsset[] }) =>
+        response.result,
+    }),
+    getProjectByMilestoneId: build.query<Project[], string[]>({
+      query: (milestoneId) => `project/milestone/${milestoneId}`,
+      providesTags: ["Projects"],
+    }),
+    getProjectDetails: build.query<Project, string>({
+      query: (projectId) => `project/${projectId}/details`,
+      providesTags: ["Projects"],
+    }),
+    getAsset: build.query<Asset, string>({
+      query: (assetId) => `asset/${assetId}`,
+      providesTags: ["Asset"],
+    }),
+    returnAsset: build.mutation<
+      void,
+      { staffId: string; payload: ReturnRequestInput }
+    >({
+      query: ({ staffId, payload }) => ({
+        url: `/return-requests?staffId=${staffId}`,
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["ReturnRequest"],
+    }),
+    getReturnRequestsByStaffId: build.query<
+      { result: ReturnRequest[] },
+      string
+    >({
+      query: (staffId) => `/return-requests/staff/${staffId}`,
+      providesTags: ["ReturnRequest"],
+    }),
   }),
 });
 
@@ -609,4 +696,16 @@ export const {
   useGetAssetsBorrowedQuery,
   //getTaskById
   useGetTaskByIdQuery,
+  //getStaffBorrowedAssets
+  useGetStaffBorrowedAssetsQuery,
+  //getProjectByMilestoneId
+  useGetProjectByMilestoneIdQuery,
+  //getProjectDetails
+  useGetProjectDetailsQuery,
+  //getAsset
+  useGetAssetQuery,
+  //submitReturnRequest
+  useReturnAssetMutation,
+  //getReturnRequestsByStaffId
+  useGetReturnRequestsByStaffIdQuery,
 } = api;
