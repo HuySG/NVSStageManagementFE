@@ -1,189 +1,157 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   useGetBorrowedAssetsQuery,
   useGetAssetRequestsForManagerQuery,
-  BorrowedAsset,
   useGetUserInfoQuery,
 } from "@/state/api";
-import { Card, CardContent, CircularProgress } from "@mui/material";
-import BorrowedAssetDetailModal from "@/components/BorrowedAssetDetailModal";
+import { groupAssetsByProjectAndDepartment } from "@/lib/utils";
+import { Folder } from "lucide-react";
 
-const BorrowedAssetManagementPage = () => {
-  const {
-    data: borrowedAssets,
-    isLoading,
-    error,
-  } = useGetBorrowedAssetsQuery();
-  const { data: assetRequests } = useGetAssetRequestsForManagerQuery();
+const ProjectListPage = () => {
   const {
     data: user,
     isLoading: isUserLoading,
     error: userError,
   } = useGetUserInfoQuery();
+  const {
+    data: borrowedAssets,
+    isLoading: isAssetsLoading,
+    error: assetsError,
+  } = useGetBorrowedAssetsQuery();
+  const {
+    data: assetRequests,
+    isLoading: isRequestsLoading,
+    error: requestsError,
+  } = useGetAssetRequestsForManagerQuery();
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const isLoading = isUserLoading || isAssetsLoading || isRequestsLoading;
+  const hasError = userError || assetsError || requestsError;
   const currentDepartmentId = user?.department?.id;
 
-  const [selectedBorrowedAsset, setSelectedBorrowedAsset] =
-    useState<BorrowedAsset | null>(null);
-  const [openModal, setOpenModal] = useState(false);
+  const filteredAssets =
+    borrowedAssets?.filter((asset) => {
+      const request = assetRequests?.find(
+        (r) => r.task?.taskID === asset.taskID,
+      );
+      return request?.requesterInfo?.department?.id === currentDepartmentId;
+    }) || [];
 
-  const handleRowClick = (asset: BorrowedAsset) => {
-    setSelectedBorrowedAsset(asset);
-    setOpenModal(true);
-  };
+  const groupedByProjectAndDepartment = groupAssetsByProjectAndDepartment(
+    filteredAssets,
+    assetRequests,
+  );
 
-  const satusName: Record<string, string> = {
-    IN_USE: "In Use",
-  };
+  const totalBorrowedAssets = filteredAssets.filter(
+    (a) => a.status !== "RETURNED",
+  ).length;
 
-  if (isLoading || isUserLoading) {
-    return <div className="p-4 text-center">Loading...</div>;
-  }
+  const filteredProjects = useMemo(() => {
+    if (!searchTerm.trim())
+      return Object.entries(groupedByProjectAndDepartment);
+    return Object.entries(groupedByProjectAndDepartment).filter(
+      ([_, projectData]) =>
+        projectData.title.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [groupedByProjectAndDepartment, searchTerm]);
 
-  if (error || userError) {
-    return <div className="p-4 text-red-500">Failed to load data.</div>;
-  }
-
-  // Filter and group by project for only "DL" department
-  const groupedByProjectAndDepartment: {
-    [projectId: string]: {
-      title: string;
-      departments: {
-        [departmentId: string]: {
-          name: string;
-          assets: BorrowedAsset[];
-        };
-      };
-    };
-  } = {};
-
-  borrowedAssets?.forEach((asset) => {
-    const request = assetRequests?.find((r) => r.task?.taskID === asset.taskID);
-    const projectId = request?.projectInfo?.projectID ?? "unknown";
-    const projectTitle = request?.projectInfo?.title ?? "Unknown Project";
-    const departmentId = request?.requesterInfo?.department?.id ?? "unknown";
-    const departmentName =
-      request?.requesterInfo?.department?.name ?? "Unknown Department";
-
-    if (departmentId !== currentDepartmentId) return;
-
-    if (!groupedByProjectAndDepartment[projectId]) {
-      groupedByProjectAndDepartment[projectId] = {
-        title: projectTitle,
-        departments: {},
-      };
-    }
-
-    if (!groupedByProjectAndDepartment[projectId].departments[departmentId]) {
-      groupedByProjectAndDepartment[projectId].departments[departmentId] = {
-        name: departmentName,
-        assets: [],
-      };
-    }
-
-    groupedByProjectAndDepartment[projectId].departments[
-      departmentId
-    ].assets.push(asset);
-  });
-
-  const getBorrowerName = (taskId: string): string => {
-    const request = assetRequests?.find((r) => r.task?.taskID === taskId);
-    return request?.requesterInfo?.fullName ?? "Unknown";
-  };
-
-  const getTaskTitle = (taskId: string): string => {
-    const request = assetRequests?.find((r) => r.task?.taskID === taskId);
-    return request?.task?.title ?? taskId;
-  };
-  if (Object.keys(groupedByProjectAndDepartment).length === 0) {
+  if (isLoading) {
     return (
-      <div className="mt-8 text-center text-gray-500">
-        No borrowed assets found for department "DL".
+      <div className="p-6 text-center text-gray-600">Đang tải dữ liệu...</div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="p-6 text-center font-semibold text-red-600">
+        Không thể tải dữ liệu.
+      </div>
+    );
+  }
+
+  if (!currentDepartmentId) {
+    return (
+      <div className="p-6 text-center font-semibold text-red-600">
+        Không tìm thấy thông tin phòng ban của bạn.
       </div>
     );
   }
 
   return (
-    <div className="p-6 text-center">
-      <h1 className="mb-6 text-center text-3xl font-bold">
-        Borrowed Assets Management - DL Department
-      </h1>
+    <div className="min-h-screen bg-gray-100 px-8 py-12 md:px-16 lg:px-24 xl:px-32">
+      <header className="mb-6 max-w-full">
+        <h1 className="mb-3 text-4xl font-extrabold text-gray-900">
+          Danh sách dự án mượn tài sản
+        </h1>
+        <p className="mb-2 text-lg text-gray-700">
+          Chọn dự án để xem chi tiết các tài sản đang mượn của phòng ban bạn.
+        </p>
+        <p className="text-lg font-semibold text-indigo-600">
+          Tổng số tài sản đang mượn: {totalBorrowedAssets}
+        </p>
+      </header>
 
-      {Object.entries(groupedByProjectAndDepartment).map(
-        ([projectId, projectData]) => (
-          <div key={projectId} className="mb-10">
-            <h2 className="mb-3 text-2xl font-bold text-blue-800">
-              Project: {projectData.title}
-            </h2>
+      {/* Đường ngăn cách */}
+      <hr className="mb-8 border-gray-300" />
 
-            {Object.entries(projectData.departments).map(
-              ([departmentId, departmentData]) => (
-                <div key={departmentId} className="mb-6 ml-4">
-                  <h3 className="mb-2 text-lg font-semibold text-green-700">
-                    Department: {departmentData.name}
-                  </h3>
-                  <Card>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full border text-sm">
-                          <thead>
-                            <tr className="bg-gray-200">
-                              <th className="p-2">Asset ID</th>
-                              <th className="p-2">Task</th>
-                              <th className="p-2">Borrower</th>
-                              <th className="p-2">Borrow Time</th>
-                              <th className="p-2">End Time</th>
-                              <th className="p-2">Status</th>
-                              <th className="p-2">Description</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {departmentData.assets.map((item) => (
-                              <tr
-                                key={item.borrowedId}
-                                className="cursor-pointer border-t hover:bg-gray-100"
-                                onClick={() => handleRowClick(item)}
-                              >
-                                <td className="p-2">{item.assetID}</td>
-                                <td className="p-2">
-                                  {getTaskTitle(item.taskID)}
-                                </td>
-                                <td className="p-2">
-                                  {getBorrowerName(item.taskID)}
-                                </td>
-                                <td className="p-2">
-                                  {new Date(item.borrowTime).toLocaleString()}
-                                </td>
-                                <td className="p-2">
-                                  {new Date(item.endTime).toLocaleString()}
-                                </td>
-                                <td className="p-2">
-                                  {satusName[item.status]}
-                                </td>
-                                <td className="p-2">{item.description}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ),
-            )}
-          </div>
-        ),
-      )}
-      {selectedBorrowedAsset && (
-        <BorrowedAssetDetailModal
-          open={openModal}
-          onClose={() => setOpenModal(false)}
-          borrowedAsset={selectedBorrowedAsset}
+      <div className="mb-8 max-w-full">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Tìm kiếm dự án..."
+          className="w-full max-w-xl rounded-lg border border-gray-300 px-5 py-3 text-gray-800 placeholder-gray-400 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring focus:ring-indigo-200"
         />
-      )}
+      </div>
+
+      <div className="grid max-w-full gap-y-4 rounded-lg">
+        {filteredProjects.length === 0 && (
+          <div className="p-10 text-center text-lg text-gray-500">
+            Không tìm thấy dự án phù hợp.
+          </div>
+        )}
+
+        {filteredProjects.map(([projectId, projectData]) => {
+          const totalAssets = Object.values(projectData.departments).reduce(
+            (sum, dept) =>
+              sum + dept.assets.filter((a) => a.status !== "RETURNED").length,
+            0,
+          );
+
+          const activeDepartmentsCount = Object.values(
+            projectData.departments,
+          ).filter((dept) =>
+            dept.assets.some((a) => a.status !== "RETURNED"),
+          ).length;
+
+          return (
+            <Link
+              key={projectId}
+              href={`/borrowedAssetsForProject/${projectId}/${currentDepartmentId}`}
+              className="space-y-4cursor-pointer flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:bg-indigo-50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              aria-label={`Dự án ${projectData.title}, có ${activeDepartmentsCount} phòng ban và ${totalAssets} tài sản đang mượn`}
+            >
+              <div className="mb-4 flex items-center space-x-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                  <Folder size={24} />
+                </div>
+                <h2 className="truncate text-lg font-semibold text-indigo-900">
+                  {projectData.title}
+                </h2>
+              </div>
+              <div className="flex justify-between text-sm font-medium text-gray-700">
+                <span>{totalAssets} tài sản đang mượn</span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 };
 
-export default BorrowedAssetManagementPage;
+export default ProjectListPage;

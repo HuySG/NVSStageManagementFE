@@ -239,14 +239,17 @@ export type Booking = {
 };
 
 export interface BorrowedAsset {
-  borrowedId: string;
+  borrowedID: string;
   assetID: string;
   taskID: string;
   borrowTime: string;
+  startTime: string;
   endTime: string;
   description: string;
   status: string;
+  requestId: string;
 }
+
 export interface RequesterInfo {
   id: string;
   fullName: string;
@@ -574,6 +577,11 @@ export const api = createApi({
     }),
     getBorrowedAssets: build.query<BorrowedAsset[], void>({
       query: () => "borrowed-assets",
+      transformResponse: (response: {
+        code: number;
+        message: string;
+        result: BorrowedAsset[];
+      }) => response.result,
       providesTags: ["BorrowedAssets"],
     }),
     getAssetsBorrowed: build.query<Asset[], void>({
@@ -621,6 +629,15 @@ export const api = createApi({
     >({
       query: (staffId) => `/return-requests/staff/${staffId}`,
       providesTags: ["ReturnRequest"],
+    }),
+    getAssetById: build.query<Asset, string>({
+      query: (id) => `/asset/${id}`,
+      providesTags: ["Assets"],
+    }),
+    getBorrowedAssetById: build.query({
+      query: (borrowedID) =>
+        `borrowed-assets/borrowedId?borrowedId=${borrowedID}`,
+      providesTags: ["AssetRequests"],
     }),
   }),
 });
@@ -708,4 +725,8 @@ export const {
   useReturnAssetMutation,
   //getReturnRequestsByStaffId
   useGetReturnRequestsByStaffIdQuery,
+  //getAssetById
+  useGetAssetByIdQuery,
+  //getBorrowedAssetById
+  useGetBorrowedAssetByIdQuery,
 } = api;
