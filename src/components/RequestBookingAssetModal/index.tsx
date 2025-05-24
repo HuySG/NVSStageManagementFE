@@ -42,12 +42,12 @@ const RequestBookingAssetModal = ({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("09:00");
   const [assetID, setAssetID] = useState("");
-  const [bookingType, setBookingType] = useState("ONE_TIME");
-  const [recurrenceCount, setRecurrenceCount] = useState(0);
+  const [bookingType, setBookingType] = useState<"ONE_TIME" | "RECURRING">(
+    "ONE_TIME",
+  );
   const [recurrenceType, setRecurrenceType] = useState<
     "NONE" | "DAILY" | "WEEKLY" | "MONTHLY"
   >("NONE");
-
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([]);
@@ -65,12 +65,17 @@ const RequestBookingAssetModal = ({
       : { categoryId: "" },
     { skip: !selectedCategoryId },
   );
-
-  const { data: assets } = useGetAllAssetQuery();
-
   const { data: bookings, isLoading: isLoadingBookings } =
     useGetAssetBookingsQuery(assetID, { skip: !assetID });
   const [createBooking, { isLoading }] = useCreateAssetRequestBookingMutation();
+
+  useEffect(() => {
+    if (recurrenceType === "NONE") {
+      setBookingType("ONE_TIME");
+    } else {
+      setBookingType("RECURRING");
+    }
+  }, [recurrenceType]);
 
   useEffect(() => {
     if (selectedAssetTypeId) {
@@ -99,29 +104,26 @@ const RequestBookingAssetModal = ({
     }
     return date.toISOString();
   };
+
   const buildFullEndTime = () => {
     if (!startTime || !endTime || !endTime.includes(":")) return "";
-
     const [hoursStr, minutesStr] = endTime.split(":");
     const hours = Number(hoursStr);
     const minutes = Number(minutesStr);
     if (isNaN(hours) || isNaN(minutes)) return "";
-
     const baseDate = new Date(startTime);
     if (isNaN(baseDate.getTime())) return "";
-
     const end = new Date(baseDate);
     end.setHours(hours);
     end.setMinutes(minutes);
     end.setSeconds(0);
-
     return end.toISOString();
   };
 
   const isBookingOverlap = () => {
     if (!bookings) return false;
     const newStart = new Date(toISOStringWithTimezone(startTime)).getTime();
-    const newEnd = new Date(toISOStringWithTimezone(endTime)).getTime();
+    const newEnd = new Date(buildFullEndTime()).getTime();
     return bookings.some((booking: Booking) => {
       const existingStart = new Date(
         toISOStringWithTimezone(booking.startTime),
@@ -146,15 +148,26 @@ const RequestBookingAssetModal = ({
       allDay: false,
     }));
   };
+  const formattedEndDate =
+    bookingType === "RECURRING" && recurrenceEndDate
+      ? recurrenceEndDate.split("T")[0]
+      : bookingType === "ONE_TIME"
+        ? startTime.split("T")[0]
+        : undefined;
 
   const handleSubmit = async () => {
     if (!startTime || !endTime || !assetID) {
       toast.warning("Please fill in all required fields.");
       return;
     }
-
     if (isBookingOverlap()) {
       toast.error("This asset is already booked for the selected time.");
+      return;
+    }
+    if (bookingType === "RECURRING" && !recurrenceEndDate) {
+      toast.warning(
+        "Please select recurrence end date for recurring bookings.",
+      );
       return;
     }
 
@@ -171,9 +184,8 @@ const RequestBookingAssetModal = ({
       selectedDays,
       dayOfMonth,
       fallbackToLastDay,
-      recurrenceEndDate: recurrenceEndDate || undefined,
+      recurrenceEndDate: formattedEndDate,
     };
-
     try {
       await createBooking(requestData).unwrap();
       toast.success("Booking request successfully submitted!");
@@ -182,7 +194,6 @@ const RequestBookingAssetModal = ({
       toast.error("Failed to submit booking request.");
     }
   };
-
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
       <div className="w-[900px] max-w-full rounded-xl bg-white p-6 shadow-lg">
