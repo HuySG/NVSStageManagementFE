@@ -99,17 +99,17 @@ const Sidebar = () => {
               <SidebarLink icon={Users} label="Teams" href="/teams" />
               <SidebarLink
                 icon={Workflow}
-                label="Request Assets"
+                label="Yêu Cầu Đang Chờ"
                 href="/request"
               />
               <SidebarLink
                 icon={FileChartPie}
-                label="Request Status"
+                label="Theo Dõi Yêu Cầu"
                 href="/requestApprove"
               />
               <SidebarLink
                 icon={FileChartPie}
-                label="Asset Borrowed"
+                label="Tài Sản Đang Mượn"
                 href="/borrowedAssetsForProject"
               />
             </>
