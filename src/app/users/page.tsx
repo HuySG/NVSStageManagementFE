@@ -52,7 +52,6 @@ const Users = () => {
 
   return (
     <div className="flex w-full flex-col p-8">
-      <Header name="Users" />
       <div style={{ height: 650, width: "100%" }}>
         <DataGrid
           rows={users || []}

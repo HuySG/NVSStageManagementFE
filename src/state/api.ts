@@ -682,6 +682,10 @@ export const api = createApi({
       }),
       providesTags: ["Tasks"],
     }),
+    getMilestoneById: build.query<Milestone, string>({
+      query: (milestoneID) => `milestones/${milestoneID}`,
+      providesTags: ["Milestones"],
+    }),
   }),
 });
 
@@ -778,4 +782,6 @@ export const {
   useGetTasksByProjectIdQuery,
   //getTasksByDepartment
   useGetTasksByDepartmentQuery,
+  //getMilestoneById
+  useGetMilestoneByIdQuery,
 } = api;

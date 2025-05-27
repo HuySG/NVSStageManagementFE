@@ -15,7 +15,6 @@ const Settings = () => {
 
   return (
     <div className="p-8">
-      <Header name="Settings" />
       <div className="space-y-4">
         <div>
           <label className={labelStyles}>Username</label>

@@ -20,7 +20,6 @@ const ListView = ({ id, setIsModaNewTasklOpen }: Props) => {
     <div className="px-4 pb-8 xl:px-6">
       <div className="pt-5">
         <Header
-          name="List"
           buttonComponent={
             <button
               className="flex items-center rounded bg-blue-primary px-3 py-2 text-white hover:bg-blue-600"

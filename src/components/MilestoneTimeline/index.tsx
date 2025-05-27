@@ -1,5 +1,8 @@
 "use client";
-import { VerticalTimeline, VerticalTimelineElement } from "react-vertical-timeline-component";
+import {
+  VerticalTimeline,
+  VerticalTimelineElement,
+} from "react-vertical-timeline-component";
 import "react-vertical-timeline-component/style.min.css";
 import { useRouter } from "next/navigation";
 import {
@@ -11,9 +14,11 @@ import { FaFlagCheckered } from "react-icons/fa";
 import { useState } from "react";
 import Header from "../Header";
 import ModalNewProject from "@/app/Projects/ModalNewProject";
+import { PlusSquare, CalendarClock, Loader2, CheckCircle2 } from "lucide-react";
+import "./index.css";
+import { format, isBefore, isAfter, isWithinInterval } from "date-fns";
+import clsx from "clsx"; // Cần cài: npm install clsx
 
-import { PlusSquare } from "lucide-react";
-import "./index.css"
 type Props = { projectID: string };
 
 export default function MilestoneTimeline({ projectID }: Props) {
@@ -26,39 +31,49 @@ export default function MilestoneTimeline({ projectID }: Props) {
   const { data: projects } = useGetProjectsQuery();
   const project = projects?.find((p) => p.projectID === projectID);
 
-  // State mở modal tạo milestone
   const [isModalNewProjectOpen, setIsModalNewProjectOpen] = useState(false);
-  // State quản lý modal hiển thị danh sách event của 1 milestone
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [eventList, setEventList] = useState<any[]>([]);
-  // Hook lazy query để gọi API get events theo milestoneID khi cần
   const [triggerGetEvents, { isFetching: eventsLoading, error: eventsError }] =
     useLazyGetEventsByMilestoneQuery();
 
+  // Xác định trạng thái milestone dựa vào ngày
+  const getMilestoneStatus = (start: string, end: string) => {
+    const now = new Date();
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (isBefore(now, startDate))
+      return { label: "Chưa bắt đầu", color: "bg-gray-300 text-gray-700" };
+    if (isWithinInterval(now, { start: startDate, end: endDate }))
+      return { label: "Đang diễn ra", color: "bg-blue-100 text-blue-700" };
+    if (isAfter(now, endDate))
+      return { label: "Đã kết thúc", color: "bg-green-100 text-green-700" };
+    return { label: "Không xác định", color: "bg-gray-100 text-gray-400" };
+  };
+
   if (milestonesLoading)
-    return <div className="p-5 text-center text-gray-500">Loading...</div>;
+    return (
+      <div className="p-5 text-center text-gray-500">
+        Đang tải milestones...
+      </div>
+    );
   if (milestonesError || !milestones)
     return (
       <div className="p-5 text-center text-red-500">
-        Error fetching milestones
+        Không thể tải milestones
       </div>
     );
 
-  // Hàm xử lý khi click vào icon cờ để lấy danh sách event cho milestone cụ thể
-  const handleEventListClick = async (milestoneId: string) => {
-    try {
-      const eventsData = await triggerGetEvents({ milestoneId }).unwrap();
-      setEventList(eventsData);
-      setIsEventModalOpen(true);
-    } catch (error) {
-      console.error("Error fetching events for milestone", milestoneId, error);
-      // Bạn có thể hiển thị thông báo lỗi cho người dùng tại đây nếu cần
-    }
-  };
+  // Sắp xếp milestones theo ngày bắt đầu
+  const milestonesSorted = milestones
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+    );
 
   return (
     <div className="container mx-auto max-w-4xl px-4">
-
       {/* Modal New Project */}
       <ModalNewProject
         isOpen={isModalNewProjectOpen}
@@ -66,85 +81,76 @@ export default function MilestoneTimeline({ projectID }: Props) {
         id={projectID}
       />
 
-      {/* Modal hiển thị danh sách event của milestone */}
-
-
-      {/* HEADER */}
-      <div className="pb-6 pt-6 text-center lg:pb-4 lg:pt-8">
-        <Header
-          name={project ? `${project.title} Milestones` : "Project Milestones"}
-          buttonComponent={
-            <button
-              className="flex items-center rounded-md bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2 text-white transition-all hover:from-indigo-600 hover:to-blue-600"
-              onClick={() => setIsModalNewProjectOpen(true)}
-            >
-              <PlusSquare className="mr-2 h-5 w-5" /> New Milestone
-            </button>
-          }
-        />
-      </div>
-
       {/* TIMELINE */}
-      <VerticalTimeline>
-        {milestones
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-          )
-          .map((milestone) => (
+      <VerticalTimeline animate={true} lineColor="#e5e7eb">
+        {milestonesSorted.map((milestone) => {
+          const status = getMilestoneStatus(
+            milestone.startDate,
+            milestone.endDate,
+          );
+          return (
             <VerticalTimelineElement
               key={milestone.milestoneID}
-              date={`${new Date(milestone.startDate).toLocaleDateString()} - ${new Date(
-                milestone.endDate
-              ).toLocaleDateString()}`}
+              date={`${format(new Date(milestone.startDate), "dd/MM/yyyy")} — ${format(new Date(milestone.endDate), "dd/MM/yyyy")}`}
               iconStyle={{
-                background: "linear-gradient(to right, #4f46e5, #9333ea)",
+                background:
+                  status.label === "Đã kết thúc"
+                    ? "#22c55e"
+                    : status.label === "Đang diễn ra"
+                      ? "#3b82f6"
+                      : "#a3a3a3",
                 color: "#fff",
-                boxShadow: "0px 0px 10px rgba(79, 70, 229, 0.6)",
+                boxShadow: "0px 0px 14px rgba(59, 130, 246, 0.4)",
                 cursor: "pointer",
               }}
               icon={
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEventListClick(milestone.milestoneID);
-                  }}
-                  // Nếu milestone có event (giả sử milestone.events là mảng), thêm class "ripple" để hiển thị animation
-                  className={milestone.events && milestone.events.length > 0 ? "ripple" : ""}
-                  style={{
-                    height: "100%",
-                    width: "100%",
-                  
-                    alignItems: "flex-end",
-                    paddingBottom: "4px",
-                  }}
-                >
-                  <FaFlagCheckered />
-                </div>
+                status.label === "Đã kết thúc" ? (
+                  <CheckCircle2 className="h-6 w-6" />
+                ) : status.label === "Đang diễn ra" ? (
+                  <Loader2 className="animate-spin-slow h-6 w-6" />
+                ) : (
+                  <FaFlagCheckered className="h-6 w-6" />
+                )
               }
               contentStyle={{
-                background: "#ffffff",
-                color: "#333",
-                boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
-                borderRadius: "12px",
-                padding: "20px",
-                transition: "transform 0.3s ease-in-out",
+                background: "#f9fafb",
+                color: "#1e293b",
+                boxShadow: "0px 4px 16px rgba(0,0,0,0.04)",
+                borderRadius: "16px",
+                padding: "28px 24px",
+                border: "1px solid #e0e7ef",
+                transition: "transform 0.3s",
                 cursor: "pointer",
               }}
-              contentArrowStyle={{ borderRight: "7px solid #ffffff" }}
+              contentArrowStyle={{ borderRight: "7px solid #f9fafb" }}
               onTimelineElementClick={() =>
                 router.push(
-                  `/Projects/${projectID}/milestones/${milestone.milestoneID}`
+                  `/Projects/${projectID}/milestones/${milestone.milestoneID}`,
                 )
               }
             >
-              <h3 className="text-lg font-semibold text-indigo-700">
-                {milestone.title}
-              </h3>
-              <p className="text-sm text-gray-500">{milestone.description}</p>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="mb-1 flex items-center gap-1 text-lg font-bold text-indigo-700">
+                    <CalendarClock className="mr-1 inline-block text-blue-500" />
+                    {milestone.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {milestone.description}
+                  </p>
+                </div>
+                <span
+                  className={clsx(
+                    "ml-0 mt-2 rounded-full px-3 py-1 text-xs font-semibold md:ml-6 md:mt-0",
+                    status.color,
+                  )}
+                >
+                  {status.label}
+                </span>
+              </div>
             </VerticalTimelineElement>
-          ))}
+          );
+        })}
       </VerticalTimeline>
     </div>
   );

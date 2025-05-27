@@ -112,6 +112,7 @@ const Sidebar = () => {
                 label="Tài Sản Đang Mượn"
                 href="/borrowedAssetsForProject"
               />
+              <SidebarLink icon={Briefcase} label="Projects" href="/Projects" />
             </>
           )}
           {user.role.roleName === "Staff" && (
@@ -131,6 +132,7 @@ const Sidebar = () => {
                 label="Tài Sản Đang Mượn"
                 href="/borrowed-assets"
               />
+              <SidebarLink icon={Briefcase} label="Projects" href="/Projects" />
             </>
           )}
         </nav>

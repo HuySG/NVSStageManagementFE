@@ -8,15 +8,35 @@ import {
   useGetUserInfoQuery,
   useGetUsersQuery,
 } from "@/state/api";
-import { format, formatISO } from "date-fns";
+import { format } from "date-fns";
 import React, { useRef, useState } from "react";
 import Modal from "../Modal";
 import { useParams } from "next/navigation";
-import { BlobServiceClient } from "@azure/storage-blob";
+import { Clock } from "lucide-react";
+import { toast } from "react-toastify";
 
-type Props = { isOpen: boolean; onClose: () => void; id?: string | null };
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  id?: string | null;
+  milestoneStartDate: string;
+  milestoneEndDate: string;
+};
 
-const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
+const STATUS_VI_MAP: Record<string, string> = {
+  ToDo: "Cần làm",
+  WorkInProgress: "Đang làm",
+  UnderReview: "Chờ duyệt",
+  Completed: "Hoàn thành",
+};
+
+const ModalNewTask = ({
+  isOpen,
+  onClose,
+  id = null,
+  milestoneStartDate,
+  milestoneEndDate,
+}: Props) => {
   const [createTask, { isLoading }] = useCreateTaskMutation();
   const { data: users = [] } = useGetUsersQuery();
   const [title, setTitle] = useState("");
@@ -26,155 +46,70 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   const [tag, setTag] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const [assignedUsers, setAssignedUsers] = useState<TaskUser[]>([]);
-  const [files, setFiles] = useState<File[]>([]);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const params = useParams();
   const { data: currentUser } = useGetUserInfoQuery();
 
-  // Lấy projectId từ URL, đảm bảo kiểu dữ liệu là string
   const projectIdFromUrl = Array.isArray(params.milestoneId)
     ? params.milestoneId[0]
     : params.milestoneId;
-
-  // Nếu `id` không null, dùng `id`, ngược lại dùng `projectIdFromUrl`
   const milestoneId = id !== null ? id : projectIdFromUrl || "";
 
-  // Cấu hình Azure Storage - trong thực tế nên đưa vào file config riêng
-  const NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL =
-    process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL || "";
-  const AZURE_STORAGE_CONTAINER_NAME =
-    process.env.NEXT_PUBLIC_AZURE_STORAGE_CONTAINER_NAME || "attachments";
-  // Tạo ID ngẫu nhiên cho attachment
-  const generateUniqueId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-  };
+  // Chỉ cho phép submit khi đã có ngày milestone
+  const isReady =
+    !!milestoneStartDate &&
+    !!milestoneEndDate &&
+    milestoneStartDate !== "" &&
+    milestoneEndDate !== "";
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFiles = Array.from(e.target.files);
-      setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
-    }
-  };
+  const checkDateValid = () => {
+    if (!startDate || !endDate || !isReady) return false;
+    const msStart = new Date(milestoneStartDate);
+    const msEnd = new Date(milestoneEndDate);
+    const tStart = new Date(startDate);
+    const tEnd = new Date(endDate);
 
-  const uploadFilesToAzure = async () => {
-    if (files.length === 0) return [];
+    // Ngày hiện tại (giờ 00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    // Không cho phép ngày nhỏ hơn hôm nay
+    if (tStart < today || tEnd < today) return false;
 
-    const uploadedAttachments: Attachment[] = [];
-
-    try {
-      // Kiểm tra connection string
-      if (!NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL) {
-        throw new Error("Azure Storage connection string is not configured");
-      }
-
-      // Tạo BlobServiceClient
-      const blobServiceClient = new BlobServiceClient(
-        NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_URL,
-      );
-
-      // Lấy container client
-      const containerClient = blobServiceClient.getContainerClient(
-        AZURE_STORAGE_CONTAINER_NAME,
-      );
-
-      // Đảm bảo container tồn tại
-      await containerClient.createIfNotExists();
-
-      // Upload từng file
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const uniqueId = generateUniqueId();
-        const fileExtension = file.name.split(".").pop() || "";
-        const blobName = `${uniqueId}-${file.name}`;
-        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-
-        // Upload file
-        await blockBlobClient.uploadData(await file.arrayBuffer(), {
-          onProgress: (progress) => {
-            // Cập nhật tiến trình upload
-            const totalProgress = Math.round(
-              ((i + progress.loadedBytes / file.size) / files.length) * 100,
-            );
-            setUploadProgress(totalProgress);
-          },
-          blobHTTPHeaders: {
-            blobContentType: file.type,
-          },
-        });
-
-        // Thêm thông tin file đã upload vào danh sách attachments theo cấu trúc JSON
-        uploadedAttachments.push({
-          attachmentId: uniqueId,
-          fileName: file.name,
-          fileUrl: blockBlobClient.url,
-          taskId: "", // Sẽ được cập nhật sau khi task được tạo
-          uploadedById: "",
-        });
-      }
-
-      setAttachments((prevAttachments) => [
-        ...prevAttachments,
-        ...uploadedAttachments,
-      ]);
-      setFiles([]);
-      setUploadProgress(100);
-
-      return uploadedAttachments;
-    } catch (error) {
-      console.error("Error uploading files to Azure:", error);
-      alert(`Lỗi khi upload file: ${(error as Error).message}`);
-      return [];
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments((prevAttachments) =>
-      prevAttachments.filter((_, i) => i !== index),
-    );
+    return tStart >= msStart && tEnd <= msEnd && tStart <= tEnd;
   };
 
   const handleSubmit = async () => {
     if (!title || !(id !== null || milestoneId)) return;
 
+    // Validate ngày phải nằm trong khoảng milestone
+    const msStart = new Date(milestoneStartDate);
+    const msEnd = new Date(milestoneEndDate);
+    const tStart = new Date(startDate);
+    const tEnd = new Date(endDate);
+
+    if (tStart < msStart || tEnd > msEnd || tStart > tEnd) {
+      setErrorMsg(
+        "Thời gian bắt đầu và kết thúc công việc phải nằm trong khoảng thời gian của milestone, và ngày bắt đầu không được lớn hơn ngày kết thúc.",
+      );
+      return;
+    }
+
+    // Validate ngày trong tương lai
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (tStart < today || tEnd < today) {
+      setErrorMsg("Không thể tạo công việc ở ngày quá khứ.");
+      return;
+    }
+
     try {
-      // Upload files trước khi tạo task nếu có file mới
-      let taskAttachments: Attachment[] = [...attachments];
-      if (files.length > 0) {
-        const uploadedFiles = await uploadFilesToAzure();
-        taskAttachments = [...taskAttachments, ...uploadedFiles];
-      }
-      const formattedStartDate = format(
-        new Date(startDate),
-        "yyyy-MM-dd'T'HH:mm:ss",
-      );
-      const formattedDueDate = format(
-        new Date(endDate),
-        "yyyy-MM-dd'T'HH:mm:ss",
-      );
-
-      const assignedUsersFormatted = assignedUsers.map((user) => ({
-        userID: user.userID,
-        fullName: user.fullName,
-        dayOfBirth: user.dayOfBirth,
-        email: user.email,
-        pictureProfile: user.pictureProfile,
-      }));
-
+      const formattedStartDate = format(new Date(startDate), "yyyy-MM-dd");
+      const formattedDueDate = format(new Date(endDate), "yyyy-MM-dd");
       await createTask({
-        taskID: "", // BE sẽ tự sinh ID
+        taskID: "",
         title,
         description,
         status,
@@ -182,101 +117,194 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
         tag,
         startDate: formattedStartDate,
         endDate: formattedDueDate,
-        attachments: taskAttachments,
+        attachments: [],
         milestoneId: milestoneId,
-        createBy: currentUser?.id, // 👈 Thêm dòng này
+        createBy: currentUser?.id,
       });
-
+      toast.success("Tạo công việc thành công!");
       onClose();
+      setTitle("");
+      setDescription("");
+      setStartDate("");
+      setEndDate("");
+      setErrorMsg(null);
     } catch (error) {
-      console.error("Error creating task:", error);
-      alert("Lỗi khi tạo task. Vui lòng thử lại.");
+      console.error("Lỗi khi tạo task:", error);
+      setErrorMsg("Đã xảy ra lỗi khi tạo công việc. Vui lòng thử lại!");
     }
   };
 
   const isFormValid = () => {
-    return !!title && !!(id !== null || milestoneId);
+    if (!title || !(id !== null || milestoneId)) return false;
+    if (!startDate || !endDate) return false;
+    if (!isReady) return false;
+    return checkDateValid();
   };
-  if (isLoading) return <div>Loading...</div>;
-
-  const selectStyles =
-    "mb-4 block w-full rounded border border-gray-300 px-3 py-2 dark:border-dark-tertiary dark:bg-dark-tertiary dark:text-white dark:focus:outline-none";
 
   const inputStyles =
     "w-full rounded border border-gray-300 p-2 shadow-sm dark:border-dark-tertiary dark:bg-dark-tertiary dark:text-white dark:focus:outline-none";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} name="Create New Task">
+    <Modal isOpen={isOpen} onClose={onClose} name="Tạo công việc mới">
       <form
-        className="mt-4 space-y-6"
+        className="mt-2 space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
           handleSubmit();
         }}
       >
-        <input
-          type="text"
-          className={inputStyles}
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <textarea
-          className={inputStyles}
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-1 sm:gap-2">
+        {/* Thời gian milestone nổi bật */}
+        <div className="mb-2 flex items-center gap-3 rounded-xl border-l-4 border-blue-500 bg-blue-50 px-4 py-3 dark:border-blue-400 dark:bg-blue-950">
+          <Clock className="text-blue-500 dark:text-blue-300" />
+          <div>
+            <div className="text-sm font-semibold text-blue-700 dark:text-blue-200">
+              Thời gian milestone:
+              <span className="ml-2">
+                <span className="font-bold">
+                  {milestoneStartDate
+                    ? format(new Date(milestoneStartDate), "dd/MM/yyyy")
+                    : "--/--/----"}
+                </span>{" "}
+                đến{" "}
+                <span className="font-bold">
+                  {milestoneEndDate
+                    ? format(new Date(milestoneEndDate), "dd/MM/yyyy")
+                    : "--/--/----"}
+                </span>
+              </span>
+            </div>
+            <div className="mt-1 text-xs text-blue-500">
+              Công việc chỉ được tạo trong khoảng thời gian này
+            </div>
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Tiêu đề <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            className={inputStyles}
+            placeholder="Nhập tiêu đề công việc"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            disabled={!isReady}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Mô tả
+          </label>
+          <textarea
+            className={inputStyles}
+            placeholder="Nhập mô tả chi tiết"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            disabled={!isReady}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Trạng thái <span className="text-red-500">*</span>
+          </label>
           <select
-            className={selectStyles}
+            className={inputStyles}
             value={status}
             onChange={(e) =>
               setStatus(Status[e.target.value as keyof typeof Status])
             }
+            required
+            disabled={!isReady}
           >
-            <option value="">Select Status</option>
-            <option value={Status.ToDo}>To Do</option>
-            <option value={Status.WorkInProgress}>Work In Progress</option>
-            <option value={Status.UnderReview}>Under Review</option>
-            <option value={Status.Completed}>Completed</option>
+            <option value={Status.ToDo}>{STATUS_VI_MAP["ToDo"]}</option>
+            <option value={Status.WorkInProgress}>
+              {STATUS_VI_MAP["WorkInProgress"]}
+            </option>
+            <option value={Status.UnderReview}>
+              {STATUS_VI_MAP["UnderReview"]}
+            </option>
+            <option value={Status.Completed}>
+              {STATUS_VI_MAP["Completed"]}
+            </option>
           </select>
         </div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-          <input
-            type="date"
-            className={inputStyles}
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <input
-            type="date"
-            className={inputStyles}
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
+        {/* Chọn ngày nằm trong milestone */}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+              Ngày bắt đầu <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              className={inputStyles + " font-semibold"}
+              value={startDate}
+              min={
+                milestoneStartDate && new Date(milestoneStartDate) > new Date()
+                  ? milestoneStartDate
+                  : format(new Date(), "yyyy-MM-dd")
+              }
+              max={milestoneEndDate || undefined}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+              disabled={!isReady}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+              Ngày kết thúc <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              className={inputStyles + " font-semibold"}
+              value={endDate}
+              min={
+                milestoneStartDate && new Date(milestoneStartDate) > new Date()
+                  ? milestoneStartDate
+                  : format(new Date(), "yyyy-MM-dd")
+              }
+              max={milestoneEndDate || undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              required
+              disabled={!isReady}
+            />
+          </div>
         </div>
-
         {id === null && (
-          <input
-            type="text"
-            className={inputStyles}
-            placeholder="showID"
-            value={milestoneId}
-            onChange={(e) => {
-              console.log("Show ID nhập vào:", e.target.value);
-            }}
-          />
+          <div>
+            <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+              Milestone ID
+            </label>
+            <input
+              type="text"
+              className={inputStyles}
+              placeholder="ID của Milestone"
+              value={milestoneId}
+              readOnly
+              disabled
+            />
+          </div>
+        )}
+        {errorMsg && (
+          <div className="mt-2 px-2 text-sm font-semibold text-red-600">
+            {errorMsg}
+          </div>
         )}
         <button
           type="submit"
-          className={`focus-offset-2 mt-4 flex w-full justify-center rounded-md border border-transparent bg-blue-primary px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+          className={`focus-offset-2 mt-4 flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
             !isFormValid() || isLoading ? "cursor-not-allowed opacity-50" : ""
           }`}
-          disabled={!isFormValid() || isLoading}
+          disabled={!isFormValid() || isLoading || !isReady}
         >
-          {isLoading ? "Creating..." : "Create Task"}
+          {isLoading ? "Đang tạo..." : "Tạo công việc"}
         </button>
+        {!isReady && (
+          <div className="mt-2 text-xs text-gray-500">
+            Đang tải thông tin mốc thời gian...
+          </div>
+        )}
       </form>
     </Modal>
   );

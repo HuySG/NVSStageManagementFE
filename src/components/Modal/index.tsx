@@ -17,7 +17,6 @@ const Modal = ({ children, isOpen, onClose, name }: Props) => {
     <div className="fixed inset-0 z-50 flex h-full w-full items-center justify-center overflow-y-auto bg-gray-600 bg-opacity-50 p-4">
       <div className="w-full max-w-2xl rounded-lg bg-white p-4 shadow-lg dark:bg-dark-secondary">
         <Header
-          name={name}
           buttonComponent={
             <button
               className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-primary text-white hover:bg-blue-600"
