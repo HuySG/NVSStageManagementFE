@@ -11,7 +11,7 @@ export interface Project {
   createdBy: string;
   tasks: Task[];
   taskID: string;
-  milestones?: Milestone; // Thêm thuộc tính milestones
+  milestones: Milestone[];
 }
 
 export interface Milestone {
@@ -288,6 +288,34 @@ export interface ReturnRequest {
   requestTime: string;
   rejectReason: string | null;
   processedTime: string | null;
+}
+export type NotificationType =
+  | "OVERDUE"
+  | "AUTO_CANCELLED"
+  | "INFO"
+  | "WARNING"
+  | "SYSTEM"
+  | "ASSET_OVERDUE"
+  | "TASK_ASSIGNED"
+  | "REQUEST_REJECTED"
+  | "RETURN_REQUEST"
+  | "RETURN_APPROVED"
+  | "RETURN_REJECTED"
+  | "ALLOCATION_REQUEST"
+  | "ALLOCATION_APPROVED"
+  | "ALLOCATION_REJECTED"
+  | "ALLOCATION_CANCELLED"
+  | "ALLOCATION_COMPLETED"
+  | "ALLOCATION_FAILED"
+  | "ALLOCATION_PREPARING"
+  | "ALLOCATION_READY_TO_DELIVER";
+
+export interface Notification {
+  notificationID: string;
+  userId: string;
+  message: string;
+  createDate: string;
+  type: NotificationType;
 }
 
 export const api = createApi({
@@ -600,7 +628,7 @@ export const api = createApi({
       transformResponse: (response: { result: StaffBorrowedAsset[] }) =>
         response.result,
     }),
-    getProjectByMilestoneId: build.query<Project[], string[]>({
+    getProjectByMilestoneId: build.query<Project, string>({
       query: (milestoneId) => `project/milestone/${milestoneId}`,
       providesTags: ["Projects"],
     }),
@@ -623,13 +651,13 @@ export const api = createApi({
       }),
       invalidatesTags: ["ReturnRequest"],
     }),
-    getReturnRequestsByStaffId: build.query<
-      { result: ReturnRequest[] },
-      string
-    >({
+    getReturnRequestsByStaffId: build.query<ReturnRequest[], string>({
       query: (staffId) => `/return-requests/staff/${staffId}`,
+      transformResponse: (response: { result: ReturnRequest[] }) =>
+        response.result,
       providesTags: ["ReturnRequest"],
     }),
+
     getAssetById: build.query<Asset, string>({
       query: (id) => `/asset/${id}`,
       providesTags: ["Assets"],
@@ -638,6 +666,21 @@ export const api = createApi({
       query: (borrowedID) =>
         `borrowed-assets/borrowedId?borrowedId=${borrowedID}`,
       providesTags: ["AssetRequests"],
+    }),
+    getNotificationsByUser: build.query<Notification[], string>({
+      query: (userId: string) => `/notifications/user/${userId}`,
+    }),
+    getTasksByProjectId: build.query<Task[], string>({
+      query: (projectId) => `tasks/by-project/${projectId}`,
+      providesTags: ["Tasks"],
+    }),
+    // Thêm endpoint vào api slice
+    getTasksByDepartment: build.query<Task[], string>({
+      query: (departmentId) => ({
+        url: `tasks/department/${departmentId}`,
+        method: "GET",
+      }),
+      providesTags: ["Tasks"],
     }),
   }),
 });
@@ -729,4 +772,10 @@ export const {
   useGetAssetByIdQuery,
   //getBorrowedAssetById
   useGetBorrowedAssetByIdQuery,
+  //getNotificationsByUser
+  useGetNotificationsByUserQuery,
+  //getTasksByProjectId
+  useGetTasksByProjectIdQuery,
+  //getTasksByDepartment
+  useGetTasksByDepartmentQuery,
 } = api;

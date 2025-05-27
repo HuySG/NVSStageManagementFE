@@ -123,12 +123,12 @@ const Sidebar = () => {
               <SidebarLink icon={Users} label="Teams" href="/teams" />
               <SidebarLink
                 icon={FileChartPie}
-                label="Request Status"
+                label="Theo Dõi Yêu Cầu"
                 href="/requestApprove"
               />
               <SidebarLink
                 icon={FileChartPie}
-                label="My Request"
+                label="Tài Sản Đang Mượn"
                 href="/borrowed-assets"
               />
             </>

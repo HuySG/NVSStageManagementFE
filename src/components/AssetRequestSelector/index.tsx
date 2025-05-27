@@ -6,10 +6,12 @@ import RequestCategoryAssetModal from "../RequestCategoryAssetModal"; // Modal y
 type RequestAssetModalProps = {
   taskId: string;
   onClose: () => void;
+  isOpen: boolean;
 };
 
 const AssetRequestSelector = ({ taskId, onClose }: RequestAssetModalProps) => {
   const [selectedRequestType, setSelectedRequestType] = useState<string>("");
+  const [openModal, setOpenModal] = useState(false);
 
   // Xử lý sự thay đổi loại yêu cầu tài sản
   const handleChangeRequestType = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -49,7 +51,11 @@ const AssetRequestSelector = ({ taskId, onClose }: RequestAssetModalProps) => {
           <RequestAssetModal taskId={taskId} onClose={onClose} />
         )} */}
         {selectedRequestType === "booking" && (
-          <RequestBookingAssetModal taskId={taskId} onClose={onClose} />
+          <RequestBookingAssetModal
+            isOpen={true}
+            taskId={taskId}
+            onClose={onClose}
+          />
         )}
         {selectedRequestType === "category" && (
           <RequestCategoryAssetModal taskId={taskId} onClose={onClose} />

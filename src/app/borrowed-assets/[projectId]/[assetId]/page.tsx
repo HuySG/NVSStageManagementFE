@@ -103,7 +103,7 @@ export default function ReturnRequestFormPage() {
       skip: !staffId,
     });
 
-  const returnRequests = data?.result ?? [];
+  const returnRequests = data ?? [];
 
   const filteredRequests = returnRequests.filter(
     (r) => r.assetId === assetId && r.taskId === borrowedInfo?.taskId,

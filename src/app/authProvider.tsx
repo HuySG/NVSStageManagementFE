@@ -69,13 +69,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (userInfo) {
           setUser(userInfo);
           localStorage.setItem("user", JSON.stringify(userInfo));
-
-          let redirectPath =
-            userInfo.role.roleName === "Staff" ? "/Member" : "/home";
-          router.push(redirectPath);
-        } else {
-          router.push("/home");
         }
+        router.push("/home"); // ✅ Redirect về /home cho tất cả role
 
         // Tự động logout sau 1 giờ
         setTimeout(

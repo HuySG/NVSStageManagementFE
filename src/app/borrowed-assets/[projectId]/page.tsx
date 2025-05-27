@@ -30,7 +30,7 @@ export default function ProjectBorrowedAssetsPage() {
       skip: !staffId,
     });
 
-  const returnRequests = returnData?.result ?? [];
+  const returnRequests = returnData ?? [];
 
   // Lọc tài sản theo project
   const filteredAssets = assets.filter((a) => a.projectId === projectId);
