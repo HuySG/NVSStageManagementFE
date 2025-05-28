@@ -97,7 +97,7 @@ const BoardView = ({
   );
   const tasks =
     userRole === "Leader"
-      ? tasksByDepartment
+      ? tasksByDepartment?.filter((task) => task.milestoneId === id) || []
       : tasksByUser?.filter((task) => task.milestoneId === id) || [];
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
   const [updateTask] = useUpdateTaskMutation();
