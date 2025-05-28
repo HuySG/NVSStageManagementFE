@@ -3,6 +3,7 @@ import { Menu, Moon, Search, Settings, Sun } from "lucide-react";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsdarkMode, setIsSidebarCollapsed } from "@/state";
+import NotificationDropdown from "../NotificationDropdown";
 
 const Navbar = () => {
   const dispatch = useAppDispatch();
@@ -59,6 +60,7 @@ const Navbar = () => {
         >
           <Settings className="h-6 w-6 cursor-pointer dark:text-white" />
         </Link>
+        <NotificationDropdown />
         <div className="ml-2 mr-5 hidden min-h-[2em] w-[0.1rem] bg-gray-200 md:inline-block"></div>
       </div>
     </div>

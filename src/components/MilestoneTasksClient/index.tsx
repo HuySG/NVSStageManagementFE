@@ -42,6 +42,8 @@ const MilestoneTasksClient = ({ milestoneId }: Props) => {
         <BoardView
           id={milestoneId}
           setIsModaNewTasklOpen={setIsModalNewTaskOpen}
+          milestoneStartDate={milestoneStartDate}
+          milestoneEndDate={milestoneEndDate}
         />
       )}
       {activeTab === "List" && (

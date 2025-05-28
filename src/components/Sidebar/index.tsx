@@ -136,27 +136,6 @@ const Sidebar = () => {
             </>
           )}
         </nav>
-        <button
-          onClick={() => setShowProjects((prev) => !prev)}
-          className="flex w-full items-center justify-between px-8 py-3 text-gray-500"
-        >
-          <span className="">Projects</span>
-          {showProjects ? (
-            <ChevronUp className="h-5 w-5" />
-          ) : (
-            <ChevronDown className="h-5 w-5" />
-          )}
-        </button>
-        {/* Projects List */}
-        {showProjects &&
-          projects?.map((project) => (
-            <SidebarLink
-              key={project.projectID}
-              icon={Briefcase}
-              label={project.title}
-              href={`/Projects/${project.projectID}`}
-            />
-          ))}
       </div>
       <UserProfile />
     </div>

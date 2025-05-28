@@ -3,6 +3,7 @@ import {
   useArchiveTaskMutation,
   useGetRequestsByTaskQuery,
   useGetTaskMilestoneQuery,
+  useGetTasksByDepartmentQuery,
   useGetTasksByUserQuery,
   useGetUserByDepartmentQuery,
   useGetUserInfoQuery,
@@ -31,6 +32,8 @@ import RequestListModal from "../ListRequestModal/RequestListModal";
 type BoardProps = {
   id: string;
   setIsModaNewTasklOpen: (isOpen: boolean) => void;
+  milestoneStartDate: string;
+  milestoneEndDate: string;
 };
 
 const statusViMap: Record<string, string> = {
@@ -42,7 +45,12 @@ const statusViMap: Record<string, string> = {
 
 const taskStatus = ["ToDo", "WorkInProgress", "UnderReview", "Completed"];
 
-const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
+const BoardView = ({
+  id,
+  setIsModaNewTasklOpen,
+  milestoneStartDate,
+  milestoneEndDate,
+}: BoardProps) => {
   const [editingTask, setEditingTask] = useState<TaskType | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -80,9 +88,16 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
   });
 
   const userRole = currentUser?.role?.roleName || "Staff";
+  // Lấy task của phòng ban (cho leader)
+  const { data: tasksByDepartment } = useGetTasksByDepartmentQuery(
+    departmentUser ?? "",
+    {
+      skip: !departmentUser || userRole !== "Leader",
+    },
+  );
   const tasks =
     userRole === "Leader"
-      ? tasksByMilestone
+      ? tasksByDepartment
       : tasksByUser?.filter((task) => task.milestoneId === id) || [];
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
   const [updateTask] = useUpdateTaskMutation();
@@ -154,6 +169,8 @@ const BoardView = ({ id, setIsModaNewTasklOpen }: BoardProps) => {
               }
               onClose={() => setEditingTask(null)}
               onSave={handleTaskEdit}
+              milestoneStartDate={milestoneStartDate}
+              milestoneEndDate={milestoneEndDate}
             />
           </div>
           {isRequestModalOpen && (

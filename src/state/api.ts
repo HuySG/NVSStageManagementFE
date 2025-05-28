@@ -59,19 +59,14 @@ export interface Department {
 }
 
 export interface Comment {
-  createdDate(createdDate: any): unknown;
-  commentText: ReactNode;
-  commentID: Key | null | undefined;
-  id: string;
-  taskId: string;
-  userId: string;
-  content: string;
-  createdAt: string;
-  user: {
-    id: string;
-    fullName: string;
-    pictureProfile: string;
-  };
+  commentID: string;
+  taskID: string;
+  userID: string;
+  commentText: string;
+  createdDate: string;
+  lastModifiedDate: string;
+  status: string;
+  parentCommentID: string;
 }
 
 export interface TaskUser {
@@ -554,9 +549,9 @@ export const api = createApi({
       },
       providesTags: (result) =>
         result
-          ? result.map(({ id }) => ({
+          ? result.map(({ commentID }) => ({
               type: "Comments" as const,
-              id: id,
+              id: commentID,
             }))
           : [{ type: "Comments" as const }],
     }),
