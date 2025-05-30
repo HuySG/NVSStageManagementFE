@@ -7,6 +7,7 @@ import {
 } from "@/state/api";
 import { useMemo } from "react";
 import Link from "next/link";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const MilestoneListPage = () => {
   const { projectId } = useParams() as { projectId: string };
@@ -70,6 +71,13 @@ const MilestoneListPage = () => {
       <header className="mb-8 rounded-b-xl border-b border-gray-100 bg-white/95 px-8 pb-4 pt-7 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
+            <Breadcrumb
+              items={[
+                { label: "Yêu cầu của tôi", href: "/myRequests" },
+                { label: projectTitle }, // nhớ lấy từ API projectDetails?.title
+              ]}
+            />
+
             <h1 className="mb-0.5 text-xl font-bold text-gray-900 dark:text-white">
               Milestone bạn đã gửi yêu cầu trong dự án:{" "}
               <span className="text-blue-700 dark:text-blue-300">

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   RefreshCcw,
 } from "lucide-react";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const statusMap: Record<string, { label: string; color: string }> = {
   PENDING_LEADER: {
@@ -147,6 +148,18 @@ const MyRequestsInMilestonePage = () => {
     <div className="min-h-screen bg-gray-50 px-0 py-0 dark:bg-gray-900">
       {/* Header */}
       <header className="mb-7 border-none bg-transparent px-0 pb-0 pt-0 shadow-none">
+        <div className="mb-4 px-10 pt-2">
+          <Breadcrumb
+            items={[
+              { label: "Yêu cầu của tôi", href: "/myRequests" },
+              {
+                label: projectTitle,
+                href: `/myRequests/${projectId}/milestones`,
+              },
+              { label: milestoneTitle }, // milestoneTitle lấy từ API
+            ]}
+          />
+        </div>
         <div className="flex flex-col gap-4 px-10 pb-7 pt-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-5">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 shadow dark:bg-indigo-900">
