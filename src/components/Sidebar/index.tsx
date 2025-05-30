@@ -125,7 +125,7 @@ const Sidebar = () => {
               <SidebarLink
                 icon={FileChartPie}
                 label="Theo Dõi Yêu Cầu"
-                href="/requestApprove"
+                href="/myRequests"
               />
               <SidebarLink
                 icon={FileChartPie}

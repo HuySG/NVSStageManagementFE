@@ -311,6 +311,7 @@ export interface Notification {
   message: string;
   createDate: string;
   type: NotificationType;
+  isRead: boolean;
 }
 
 export const api = createApi({
@@ -340,6 +341,7 @@ export const api = createApi({
     "BorrowedAssets",
     "Asset",
     "ReturnRequest",
+    "Notification",
   ],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
@@ -664,6 +666,7 @@ export const api = createApi({
     }),
     getNotificationsByUser: build.query<Notification[], string>({
       query: (userId: string) => `/notifications/user/${userId}`,
+      providesTags: ["Notification"],
     }),
     getTasksByProjectId: build.query<Task[], string>({
       query: (projectId) => `tasks/by-project/${projectId}`,
@@ -680,6 +683,18 @@ export const api = createApi({
     getMilestoneById: build.query<Milestone, string>({
       query: (milestoneID) => `milestones/${milestoneID}`,
       providesTags: ["Milestones"],
+    }),
+    getRequestAssetByUser: build.query<AssetRequest[], string>({
+      query: (userId) => `request-asset/user?userId=${userId}`,
+      providesTags: ["AssetRequests"],
+    }),
+    markNotificationsRead: build.mutation<void, string[]>({
+      query: (notificationIds) => ({
+        url: "/notifications/read",
+        method: "PATCH",
+        body: notificationIds,
+      }),
+      invalidatesTags: [{ type: "Notification", id: "LIST" }],
     }),
   }),
 });
@@ -779,4 +794,8 @@ export const {
   useGetTasksByDepartmentQuery,
   //getMilestoneById
   useGetMilestoneByIdQuery,
+  //getRequestAssetByUser
+  useGetRequestAssetByUserQuery,
+  //markNotificationsRead
+  useMarkNotificationsReadMutation,
 } = api;

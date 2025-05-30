@@ -1,6 +1,7 @@
 import {
   useGetUserInfoQuery,
   useGetNotificationsByUserQuery,
+  useMarkNotificationsReadMutation,
 } from "@/state/api";
 import {
   Bell,
@@ -89,6 +90,17 @@ const NotificationDropdown = () => {
   const [showMore, setShowMore] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const { data: currentUser } = useGetUserInfoQuery();
+  const userId = currentUser?.id ?? "";
+
+  const {
+    data: notifications,
+    isLoading,
+    refetch,
+  } = useGetNotificationsByUserQuery(userId, { skip: !userId });
+
+  const [markNotificationsRead] = useMarkNotificationsReadMutation();
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -103,15 +115,6 @@ const NotificationDropdown = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const { data: currentUser } = useGetUserInfoQuery();
-  const userId = currentUser?.id ?? "";
-  const { data: notifications, isLoading } = useGetNotificationsByUserQuery(
-    userId,
-    {
-      skip: !userId,
-    },
-  );
-
   // Sắp xếp notification mới nhất lên đầu
   const sortedNotifications = (notifications ?? [])
     .slice()
@@ -125,6 +128,27 @@ const NotificationDropdown = () => {
     ? sortedNotifications
     : sortedNotifications.slice(0, DISPLAY_LIMIT);
 
+  // Đánh dấu 1 notification là đã đọc khi click
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await markNotificationsRead([notificationId]);
+      refetch();
+    } catch (e) {}
+  };
+
+  // Đánh dấu tất cả là đã đọc (tuỳ chọn)
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = sortedNotifications
+      .filter((n) => !n.isRead)
+      .map((n) => n.notificationID);
+    if (unreadIds.length > 0) {
+      await markNotificationsRead(unreadIds);
+      refetch();
+    }
+  };
+
+  const unreadCount = sortedNotifications.filter((n) => !n.isRead).length;
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -133,9 +157,9 @@ const NotificationDropdown = () => {
         aria-label="Thông báo"
       >
         <Bell className="h-6 w-6 text-gray-600 dark:text-white" />
-        {notifications && notifications.length > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 w-4 animate-pulse items-center justify-center rounded-full bg-red-500 text-xs text-white">
-            {notifications.length}
+            {unreadCount}
           </span>
         )}
       </button>
@@ -145,10 +169,13 @@ const NotificationDropdown = () => {
             <span className="text-base font-semibold text-gray-800 dark:text-white">
               Thông báo
             </span>
-            {notifications && notifications.length > 0 && (
-              <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900 dark:text-blue-200">
-                {notifications.length} mới
-              </span>
+            {unreadCount > 0 && (
+              <button
+                className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+                onClick={handleMarkAllAsRead}
+              >
+                Đánh dấu tất cả đã đọc
+              </button>
             )}
           </div>
           <div className="custom-scrollbar max-h-[370px] overflow-y-auto bg-white dark:bg-neutral-900">
@@ -163,7 +190,11 @@ const NotificationDropdown = () => {
                   return (
                     <div
                       key={noti.notificationID}
-                      className="flex items-start gap-3 border-b border-gray-100 px-5 py-4 transition last:border-b-0 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
+                      className={`flex items-start gap-3 border-b border-gray-100 px-5 py-4 transition last:border-b-0 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800 ${noti.isRead ? "opacity-60" : "bg-blue-50"} `}
+                      onClick={() => {
+                        if (!noti.isRead) handleMarkAsRead(noti.notificationID);
+                      }}
+                      style={{ cursor: noti.isRead ? "default" : "pointer" }}
                     >
                       <div
                         className={`flex h-10 w-10 items-center justify-center rounded-full ${COLOR[type] || "bg-gray-100 text-gray-700"}`}
