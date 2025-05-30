@@ -173,3 +173,94 @@ body,
 .animate-fade-in {
   animation: fade-in 0.18s cubic-bezier(.24,1.67,.54,.71);
 }
+
+/* ==== FULLCALENDAR CUSTOM FIX ==== */
+
+/* Fix border, shadow, bo góc */
+.fc {
+  border-radius: 1rem !important;
+  background: none !important;
+  box-shadow: 0 4px 32px #2563eb09;
+  font-size: 14px;
+}
+
+/* Hôm nay nổi bật, bo nhẹ */
+.fc .fc-daygrid-day.fc-day-today {
+  background: #e8f2fd !important;
+  border-radius: 8px !important;
+  transition: background 0.18s;
+}
+
+/* Event bo tròn, không bị tràn, có padding, xuống dòng đẹp */
+.fc-event {
+  border-radius: 999px !important;
+  box-shadow: 0 2px 8px #2563eb14;
+  font-weight: 500;
+  white-space: normal !important;
+  line-height: 1.25;
+  min-height: 22px;
+  padding: 0 2px;
+  font-size: 0.97em !important;
+}
+
+/* Ẩn dấu chấm tròn mặc định trong event */
+.fc-daygrid-event-dot {
+  display: none !important;
+}
+
+/* Ẩn header mặc định nếu đã dùng headerToolbar={false} */
+.fc .fc-toolbar {
+  display: none !important;
+}
+
+/* Tiêu đề header (nếu dùng custom) nổi bật hơn */
+.fc .fc-toolbar-title {
+  font-weight: bold;
+  font-size: 1.13rem;
+  color: #2563eb;
+}
+.dark .fc .fc-toolbar-title {
+  color: #60a5fa;
+}
+
+/* Button Calendar (nếu lỡ dùng headerToolbar mặc định) */
+.fc .fc-button {
+  border-radius: 0.7rem !important;
+  font-weight: 600 !important;
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 0.1rem !important;
+  transition: background 0.16s, color 0.16s;
+}
+.fc .fc-button-primary:not(:disabled):hover,
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+.fc-timegrid-slot {
+  background: #f8fafc;
+}
+
+/* Dark mode Calendar */
+.dark .fc {
+  background: #181c24 !important;
+  color: #e5e7eb !important;
+}
+.dark .fc .fc-daygrid-day.fc-day-today {
+  background: #21315b !important;
+}
+.dark .fc .fc-event {
+  color: #e0e7ef !important;
+  background: #2563eb40 !important;
+}
+.dark .fc .fc-button {
+  background: #27334e !important;
+  color: #60a5fa !important;
+}
+.dark .fc .fc-button-primary:not(:disabled):hover,
+.dark .fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #2563eb !important;
+  color: #fff !important;
+}

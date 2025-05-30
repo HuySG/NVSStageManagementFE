@@ -1,17 +1,15 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+"use client";
+import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
 import {
   DayOfWeek,
   useGetAllAssetQuery,
   useCreateAssetRequestBookingMutation,
   useGetAssetBookingsQuery,
 } from "@/state/api";
-import viLocale from "@fullcalendar/core/locales/vi";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
 import { CalendarDays, X, Loader2 } from "lucide-react";
+import AssetBookingCalendar from "@/components/AssetBookingCalendar";
 
 interface RequestBookingAssetModalProps {
   isOpen: boolean;
@@ -233,18 +231,6 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
       extendedProps: { ...item },
     }));
   }, [bookings]);
-
-  // Ref and resize fix for FullCalendar
-  const calendarRef = useRef<any>(null);
-  useEffect(() => {
-    if (isOpen && assetId && calendarRef.current) {
-      setTimeout(() => {
-        if (calendarRef.current?.getApi) {
-          calendarRef.current.getApi().updateSize();
-        }
-      }, 200);
-    }
-  }, [isOpen, assetId]);
 
   if (!isOpen) return null;
 
@@ -545,62 +531,19 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
                 Chọn tài sản để xem lịch đặt
               </div>
             )}
-            {assetId && loadingCalendar && (
-              <div className="flex w-full items-center justify-center gap-2 text-gray-400">
-                <Loader2 className="animate-spin" /> Đang tải lịch đặt...
+            {assetId && (
+              <div className="w-full">
+                <AssetBookingCalendar
+                  events={events}
+                  loading={loadingCalendar}
+                  error={errorCalendar}
+                  height={window.innerWidth >= 768 ? 440 : 320}
+                />
               </div>
             )}
-            {assetId && errorCalendar && (
-              <div className="w-full text-center text-red-500">
-                Lỗi tải lịch đặt!
-              </div>
-            )}
-            {assetId &&
-              !loadingCalendar &&
-              !errorCalendar &&
-              events.length === 0 && (
-                <div className="w-full text-center text-gray-400">
-                  Tài sản này chưa có lịch đặt nào.
-                </div>
-              )}
-            {assetId &&
-              !loadingCalendar &&
-              !errorCalendar &&
-              events.length > 0 && (
-                <div className="w-full">
-                  <FullCalendar
-                    ref={calendarRef}
-                    plugins={[dayGridPlugin]}
-                    initialView="dayGridMonth"
-                    headerToolbar={false}
-                    locale={viLocale}
-                    events={events}
-                    height={window.innerWidth >= 768 ? 440 : 320}
-                    eventContent={renderEventContent}
-                  />
-                </div>
-              )}
           </div>
         </div>
       </div>
-      {/* Custom style nhẹ cho Calendar */}
-      <style jsx global>{`
-        .fc {
-          border-radius: 1rem !important;
-          background: none !important;
-          box-shadow: 0 4px 32px #2563eb09;
-        }
-        .fc .fc-daygrid-day.fc-day-today {
-          background: #e8f2fd !important;
-          border-radius: 8px !important;
-          transition: background 0.18s;
-        }
-        .fc-event {
-          border-radius: 999px !important;
-          box-shadow: 0 2px 8px #2563eb14;
-          font-weight: 500;
-        }
-      `}</style>
       <style jsx>{`
         .input-custom {
           width: 100%;
@@ -624,19 +567,5 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
     </div>
   );
 };
-
-function renderEventContent(eventInfo: any) {
-  const { event } = eventInfo;
-  return (
-    <div className="px-1">
-      <div className="truncate text-xs font-bold text-blue-700">
-        {event.title}
-      </div>
-      <div className="text-xs text-gray-500">
-        {event.extendedProps?.status || ""}
-      </div>
-    </div>
-  );
-}
 
 export default RequestBookingAssetModal;
