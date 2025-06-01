@@ -24,7 +24,7 @@ const AssetBookingCalendar: React.FC<AssetBookingCalendarProps> = ({
   events,
   loading,
   error,
-  height = 440,
+  height = 560,
 }) => {
   const calendarRef = useRef<any>(null);
   const [currentView, setCurrentView] = useState("dayGridMonth");
@@ -83,62 +83,74 @@ const AssetBookingCalendar: React.FC<AssetBookingCalendarProps> = ({
     );
 
   return (
-    <div className="w-full rounded-2xl border border-blue-100 bg-white px-3 pb-3 pt-1 shadow-md dark:bg-[#181c24]">
+    <div className="asset-calendar-container mx-auto w-full max-w-[700px] rounded-3xl border border-blue-200 bg-white px-2 pb-3 pt-1 shadow-xl dark:bg-[#181c24]">
       {/* Custom Header */}
-      <div className="flex w-full flex-col gap-3 px-2 pb-3 pt-4 md:flex-row md:items-center md:justify-between">
+      <div
+        className="flex flex-wrap items-center justify-between gap-2 px-1 py-3 md:flex-nowrap md:gap-3 md:px-3"
+        style={{ borderRadius: 18, marginBottom: 8, background: "#f8fafc" }}
+      >
         {/* Tiêu đề */}
-        <div className="flex min-w-[180px] items-center gap-2 text-lg font-bold text-blue-700 dark:text-blue-300">
-          <CalendarDays size={21} />
-          <span style={{ minWidth: 130, display: "inline-block" }}>
+        <div className="flex items-center gap-2 text-base font-bold text-blue-700 dark:text-blue-300 md:text-lg">
+          <CalendarDays size={20} />
+          <span className="truncate" style={{ minWidth: 95 }}>
             {title}
           </span>
         </div>
-        {/* Vùng nút View (Tháng, Tuần, Ngày) */}
-        <div className="flex min-w-[145px] gap-2">
+        {/* Navigation & Today */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handlePrev}
+            className="rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100 dark:bg-gray-700 dark:hover:bg-blue-800"
+            title="Trước"
+            style={{ minWidth: 30, minHeight: 30 }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={handleToday}
+            className="rounded-lg bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600 transition hover:bg-blue-200"
+            style={{ minWidth: 44 }}
+          >
+            Hôm nay
+          </button>
+          <button
+            onClick={handleNext}
+            className="rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100 dark:bg-gray-700 dark:hover:bg-blue-800"
+            title="Sau"
+            style={{ minWidth: 30, minHeight: 30 }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        {/* Bộ chọn view */}
+        <div className="flex flex-row items-center gap-1">
           {VIEW_OPTIONS.map((opt) => (
             <button
               key={opt.key}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
                 currentView === opt.key
                   ? "bg-blue-600 text-white shadow"
                   : "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-gray-700 dark:text-blue-200 dark:hover:bg-blue-800"
-              }`}
-              style={{ minWidth: 45 }}
+              } `}
+              style={{ minWidth: 38 }}
               onClick={() => handleChangeView(opt.key)}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        {/* Navigation */}
-        <div className="flex min-w-[105px] items-center justify-end gap-2">
-          <button
-            onClick={handlePrev}
-            className="rounded-lg bg-blue-50 p-1.5 transition hover:bg-blue-100 dark:bg-gray-700 dark:hover:bg-blue-800"
-            title="Trước"
-            style={{ minWidth: 32 }}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            onClick={handleToday}
-            className="rounded-lg bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600 transition hover:bg-blue-200"
-            style={{ minWidth: 55 }}
-          >
-            Hôm nay
-          </button>
-          <button
-            onClick={handleNext}
-            className="rounded-lg bg-blue-50 p-1.5 transition hover:bg-blue-100 dark:bg-gray-700 dark:hover:bg-blue-800"
-            title="Sau"
-            style={{ minWidth: 32 }}
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
       </div>
-      {/* Calendar */}
-      <div className="pt-1">
+      {/* Calendar content: bọc overflow-x */}
+      <div
+        className="calendar-content-wrapper"
+        style={{
+          width: "100%",
+          minWidth: 0,
+          overflowX: "auto",
+          paddingRight: 8,
+          boxSizing: "border-box",
+        }}
+      >
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -150,9 +162,36 @@ const AssetBookingCalendar: React.FC<AssetBookingCalendarProps> = ({
           slotMinTime="06:00:00"
           slotMaxTime="22:00:00"
           allDaySlot={true}
-          headerToolbar={false} // Quan trọng: không cho Calendar tự render header mặc định
+          headerToolbar={false}
         />
       </div>
+      {/* Custom style chống tràn viền, tối ưu table */}
+      <style jsx>{`
+        .asset-calendar-container {
+          min-height: 440px;
+        }
+        .asset-calendar-container .fc {
+          width: 100% !important;
+          min-width: 0 !important;
+          box-sizing: border-box;
+          overflow-x: auto;
+        }
+        .asset-calendar-container .fc-scrollgrid {
+          border-radius: 14px;
+          overflow: hidden;
+        }
+        .calendar-content-wrapper {
+          width: 100%;
+          overflow-x: auto;
+          min-width: 0;
+        }
+        @media (max-width: 767px) {
+          .asset-calendar-container {
+            padding: 0.3rem;
+            border-radius: 12px;
+          }
+        }
+      `}</style>
     </div>
   );
 };
@@ -163,13 +202,13 @@ function renderEventContent(eventInfo: any) {
     <div className="px-1">
       <div
         className="truncate text-xs font-bold text-blue-700 dark:text-blue-300"
-        style={{ maxWidth: 95 }}
+        style={{ maxWidth: 105, fontSize: 13 }}
       >
         {event.title}
       </div>
       <div
         className="text-xs text-gray-500 dark:text-gray-400"
-        style={{ maxWidth: 95, whiteSpace: "normal" }}
+        style={{ maxWidth: 105, whiteSpace: "normal" }}
       >
         {event.extendedProps?.status || ""}
       </div>

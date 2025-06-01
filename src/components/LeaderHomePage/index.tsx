@@ -9,17 +9,11 @@ import {
   useGetTasksByDepartmentQuery,
 } from "@/state/api";
 import { Card, CardContent } from "@mui/material";
-import {
-  Briefcase,
-  Box,
-  Repeat,
-  CheckCircle,
-  Clock,
-  ListChecks,
-  User,
-} from "lucide-react";
+import { Briefcase, Box, CheckCircle, Clock, ListChecks } from "lucide-react";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
-// ---------- Table component ----------
+// ----------- Table component -----------
 const Table = ({
   columns,
   data,
@@ -55,12 +49,12 @@ const Table = ({
   const handleNext = () => setCurrentPage((p) => Math.min(totalPage, p + 1));
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-white shadow dark:bg-gray-900">
-      <div className="flex items-center gap-2 p-2">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center gap-2 rounded-t-2xl bg-gray-50 px-4 py-2 dark:bg-gray-800">
         <input
           type="text"
           placeholder="Tìm kiếm..."
-          className="w-64 rounded border px-3 py-1 text-sm"
+          className="w-64 rounded border border-gray-300 bg-white px-3 py-1 text-sm dark:border-gray-700 dark:bg-gray-800"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -77,7 +71,10 @@ const Table = ({
         <thead>
           <tr className="bg-gray-50 dark:bg-gray-800">
             {columns.map((col) => (
-              <th key={col.title} className="px-4 py-2 text-left font-semibold">
+              <th
+                key={col.title}
+                className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-200"
+              >
                 {col.title}
               </th>
             ))}
@@ -88,7 +85,7 @@ const Table = ({
             <tr>
               <td
                 colSpan={columns.length}
-                className="py-4 text-center text-gray-400"
+                className="py-6 text-center text-gray-400"
               >
                 Không có dữ liệu
               </td>
@@ -97,7 +94,7 @@ const Table = ({
             pagedData.map((row, i) => (
               <tr
                 key={i}
-                className="even:bg-gray-50 hover:bg-blue-50 dark:even:bg-gray-800 dark:hover:bg-gray-700"
+                className="transition even:bg-gray-50 hover:bg-blue-50 dark:even:bg-gray-800 dark:hover:bg-gray-700"
               >
                 {columns.map((col) => (
                   <td key={col.title} className="px-4 py-2">
@@ -110,11 +107,11 @@ const Table = ({
         </tbody>
       </table>
       {totalPage > 1 && (
-        <div className="flex items-center justify-end gap-2 px-4 py-2">
+        <div className="flex items-center justify-end gap-2 rounded-b-2xl bg-gray-50 px-4 py-2 dark:bg-gray-800">
           <button
             onClick={handlePrev}
             disabled={currentPage === 1}
-            className="rounded border bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
+            className="rounded border bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-700 dark:hover:bg-gray-600"
           >
             &lt;
           </button>
@@ -124,7 +121,7 @@ const Table = ({
           <button
             onClick={handleNext}
             disabled={currentPage === totalPage}
-            className="rounded border bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50"
+            className="rounded border bg-gray-100 px-3 py-1 hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-700 dark:hover:bg-gray-600"
           >
             &gt;
           </button>
@@ -134,7 +131,7 @@ const Table = ({
   );
 };
 
-// ---------- Status mapping ----------
+// ----------- Status mapping -----------
 const statusName: Record<string, string> = {
   ToDo: "Chờ xử lý",
   WorkInProgress: "Đang thực hiện",
@@ -148,29 +145,43 @@ const statusColor: Record<string, string> = {
   Completed: "bg-green-100 text-green-700",
 };
 
-// ---------- Department Task Card ----------
-const DepartmentTaskCard = ({ departmentId }: { departmentId: string }) => {
+// ----------- Department Task Card -----------
+const DepartmentTaskCard = ({
+  departmentId,
+  userId,
+}: {
+  departmentId: string;
+  userId: string;
+}) => {
   const { data: tasks = [], isLoading } = useGetTasksByDepartmentQuery(
     departmentId,
     { skip: !departmentId },
   );
+
+  // Lọc task do leader này tạo
+  const filteredTasks = useMemo(
+    () => tasks.filter((t: any) => t.createBy === userId),
+    [tasks, userId],
+  );
+
   const stats = useMemo(() => {
-    return tasks.reduce(
-      (acc: Record<string, number>, task) => {
+    return filteredTasks.reduce(
+      (acc: Record<string, number>, task: any) => {
         acc[task.status] = (acc[task.status] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>,
     );
-  }, [tasks]);
+  }, [filteredTasks]);
+
   return (
-    <Card>
+    <Card className="border border-gray-200 shadow-none dark:border-gray-800">
       <CardContent className="flex items-center gap-3 p-4">
         <ListChecks className="h-8 w-8 text-fuchsia-500" />
         <div>
-          <p className="text-sm text-gray-500">Task của phòng ban</p>
+          <p className="text-sm text-gray-500">Công việc do bạn tạo</p>
           <p className="text-lg font-semibold">
-            {isLoading ? "..." : tasks.length}
+            {isLoading ? "..." : filteredTasks.length}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {Object.entries(stats).map(([status, count]) => (
@@ -188,36 +199,82 @@ const DepartmentTaskCard = ({ departmentId }: { departmentId: string }) => {
   );
 };
 
+// ----------- Export Excel đa sheet -----------
+function exportMultiSheetExcel(
+  sheets: {
+    name: string;
+    data: any[];
+    columns: { title: string; key: string }[];
+  }[],
+  fileName: string,
+) {
+  const workbook = XLSX.utils.book_new();
+  sheets.forEach((sheet) => {
+    // Chỉ lấy cột cần thiết & tiêu đề
+    const exportData = sheet.data.map((row) => {
+      const obj: any = {};
+      sheet.columns.forEach((col) => {
+        obj[col.title] =
+          typeof row[col.key] === "string" || typeof row[col.key] === "number"
+            ? row[col.key]
+            : typeof row[col.key]?.props?.children === "string"
+              ? row[col.key].props.children
+              : Array.isArray(row[col.key]?.props?.children)
+                ? row[col.key]?.props?.children
+                    .filter(Boolean)
+                    .map((c: any) =>
+                      typeof c === "string"
+                        ? c
+                        : typeof c?.props?.children === "string"
+                          ? c.props.children
+                          : "",
+                    )
+                    .join(" ")
+                : "";
+      });
+      return obj;
+    });
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
+  });
+  const wbout = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), fileName);
+}
+
+// ========== MAIN PAGE ==========
 const LeaderHomePage = () => {
   const { data: user } = useGetUserInfoQuery();
   const departmentId = user?.department?.id || "";
   const leaderName = user?.fullName || "Leader";
+  const userId = user?.id || "";
 
   // Projects
   const { data: projects = [], isLoading: loadingProjects } =
     useGetProjectsDepartmentQuery(departmentId || "", { skip: !departmentId });
 
   // Request assets
-  const { data: requestAssets = [], isLoading: loadingRequestAssets } =
-    useGetRequestAssetByDepartmentQuery(departmentId || "", {
+  const { data: requestAssets = [] } = useGetRequestAssetByDepartmentQuery(
+    departmentId || "",
+    {
       skip: !departmentId,
-    });
+    },
+  );
 
   // Borrowed assets
-  const { data: borrowedAssets = [], isLoading: loadingBorrowed } =
-    useGetBorrowedAssetsQuery();
+  const { data: borrowedAssets = [] } = useGetBorrowedAssetsQuery();
 
   // All assets
-  const { data: assets = [], isLoading: loadingAssets } = useGetAllAssetQuery();
+  const { data: assets = [] } = useGetAllAssetQuery();
 
   // Tasks
-  const { data: tasks = [], isLoading: loadingTasks } =
-    useGetTasksByDepartmentQuery(departmentId, { skip: !departmentId });
+  const { data: tasks = [] } = useGetTasksByDepartmentQuery(departmentId, {
+    skip: !departmentId,
+  });
 
-  // Project IDs
-  const projectIds = useMemo(
-    () => projects.map((p: any) => p.projectID),
-    [projects],
+  // Lọc task do leader này tạo
+  const filteredTasks = useMemo(
+    () => tasks.filter((t: any) => t.createBy === userId),
+    [tasks, userId],
   );
 
   // Helper join data
@@ -259,7 +316,6 @@ const LeaderHomePage = () => {
     { title: "Tên dự án", key: "title" },
     { title: "Bắt đầu", key: "startTime" },
     { title: "Kết thúc", key: "endTime" },
-    { title: "Trạng thái", key: "status" },
   ];
   const projectData = projects.map((p: any) => ({
     ...p,
@@ -291,7 +347,7 @@ const LeaderHomePage = () => {
     { title: "Ngày bắt đầu", key: "startDate" },
     { title: "Ngày kết thúc", key: "endDate" },
   ];
-  const taskData = tasks.map((t: any) => ({
+  const taskData = filteredTasks.map((t: any) => ({
     ...t,
     assigneeName: t.assigneeInfo?.fullName || "",
     startDate: t.startDate
@@ -309,11 +365,11 @@ const LeaderHomePage = () => {
     ),
   }));
 
-  // --------------- Header with Gradient, Avatar and SVG deco ---------------
+  // ----------- MAIN UI -----------
   return (
-    <div className="space-y-8 p-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-10 px-0 py-6 md:px-4">
       {/* Header */}
-      <div className="relative mb-8 flex items-center gap-6 overflow-hidden rounded-2xl bg-gradient-to-r from-pink-100 to-indigo-100 p-6 shadow dark:from-indigo-950 dark:to-pink-950">
+      <div className="relative mb-6 flex flex-row gap-6 overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-r from-pink-100 to-indigo-100 p-8 shadow dark:border-gray-800 dark:from-indigo-950 dark:to-pink-950">
         <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-pink-400 to-indigo-500 shadow-lg">
           <svg width={56} height={56} viewBox="0 0 36 36" fill="none">
             <path
@@ -323,11 +379,11 @@ const LeaderHomePage = () => {
           </svg>
         </div>
         <div>
-          <h1 className="mb-1 text-3xl font-black leading-tight tracking-tight text-gray-900 dark:text-white">
+          <h1 className="mb-2 text-3xl font-black leading-tight tracking-tight text-gray-900 dark:text-white">
             Xin chào,{" "}
             <span className="text-pink-600 dark:text-pink-400">
               {leaderName}
-            </span>{" "}
+            </span>
           </h1>
           <p className="text-base text-gray-600 dark:text-gray-300">
             Chào mừng bạn đến với trang tổng quan Leader. Quản lý mọi thứ thật
@@ -345,10 +401,49 @@ const LeaderHomePage = () => {
           <circle cx={60} cy={60} r={50} stroke="#C4B5FD" strokeWidth={6} />
         </svg>
       </div>
-
+      {/* Nút xuất tổng hợp Excel */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+          onClick={() =>
+            exportMultiSheetExcel(
+              [
+                {
+                  name: "DuAn",
+                  data: projectData,
+                  columns: projectColumns,
+                },
+                {
+                  name: "CongViec",
+                  data: taskData,
+                  columns: taskColumns,
+                },
+                {
+                  name: "TaiSanDangMuon",
+                  data: assetBorrowedData,
+                  columns: assetColumns,
+                },
+                {
+                  name: "TaiSanDaTra",
+                  data: assetReturnedData,
+                  columns: assetColumns,
+                },
+                {
+                  name: "TaiSanQuaHan",
+                  data: assetOverdueData,
+                  columns: assetColumns,
+                },
+              ],
+              "TongHop_QuanLy.xlsx",
+            )
+          }
+        >
+          Xuất File Báo Cáo Excel
+        </button>
+      </div>
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
+        <Card className="border border-gray-200 shadow-none dark:border-gray-800">
           <CardContent className="flex items-center gap-3 p-4">
             <Briefcase className="h-8 w-8 text-indigo-500" />
             <div>
@@ -359,7 +454,7 @@ const LeaderHomePage = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border border-gray-200 shadow-none dark:border-gray-800">
           <CardContent className="flex items-center gap-3 p-4">
             <Box className="h-8 w-8 text-pink-500" />
             <div>
@@ -370,7 +465,7 @@ const LeaderHomePage = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border border-gray-200 shadow-none dark:border-gray-800">
           <CardContent className="flex items-center gap-3 p-4">
             <CheckCircle className="h-8 w-8 text-green-500" />
             <div>
@@ -381,7 +476,7 @@ const LeaderHomePage = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border border-gray-200 shadow-none dark:border-gray-800">
           <CardContent className="flex items-center gap-3 p-4">
             <Clock className="h-8 w-8 text-red-400" />
             <div>
@@ -390,42 +485,48 @@ const LeaderHomePage = () => {
             </div>
           </CardContent>
         </Card>
-        <DepartmentTaskCard departmentId={departmentId} />
+        <DepartmentTaskCard departmentId={departmentId} userId={userId} />
       </div>
 
-      {/* Danh sách dự án */}
-      <div>
-        <h2 className="mb-2 text-lg font-semibold">
+      {/* Section: Dự án */}
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-xl font-bold text-gray-800 dark:text-gray-200">
           Danh sách dự án của phòng ban
         </h2>
         <Table columns={projectColumns} data={projectData} pageSize={5} />
-      </div>
+      </section>
 
-      {/* Danh sách công việc */}
-      <div>
-        <h2 className="mb-2 text-lg font-semibold">
-          Danh sách công việc phòng ban
+      {/* Section: Công việc */}
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-xl font-bold text-gray-800 dark:text-gray-200">
+          Danh sách công việc bạn đã tạo
         </h2>
         <Table columns={taskColumns} data={taskData} pageSize={5} />
-      </div>
+      </section>
 
-      {/* Tài sản đang mượn */}
-      <div>
-        <h2 className="mb-2 text-lg font-semibold">Tài sản đang mượn</h2>
+      {/* Section: Tài sản đang mượn */}
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-xl font-bold text-gray-800 dark:text-gray-200">
+          Tài sản đang mượn
+        </h2>
         <Table columns={assetColumns} data={assetBorrowedData} pageSize={5} />
-      </div>
+      </section>
 
-      {/* Tài sản đã trả */}
-      <div>
-        <h2 className="mb-2 text-lg font-semibold">Tài sản đã trả</h2>
+      {/* Section: Tài sản đã trả */}
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-xl font-bold text-gray-800 dark:text-gray-200">
+          Tài sản đã trả
+        </h2>
         <Table columns={assetColumns} data={assetReturnedData} pageSize={5} />
-      </div>
+      </section>
 
-      {/* Tài sản quá hạn */}
-      <div>
-        <h2 className="mb-2 text-lg font-semibold">Tài sản quá hạn</h2>
+      {/* Section: Tài sản quá hạn */}
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-3 text-xl font-bold text-gray-800 dark:text-gray-200">
+          Tài sản quá hạn
+        </h2>
         <Table columns={assetColumns} data={assetOverdueData} pageSize={5} />
-      </div>
+      </section>
     </div>
   );
 };

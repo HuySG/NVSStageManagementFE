@@ -22,14 +22,7 @@ export default function ProjectsPage() {
     error: projectsError,
   } = useGetProjectsDepartmentQuery(departmentId, { skip: !departmentId });
 
-  if (isLoading || isProjectsLoading)
-    return <div className="p-10">Đang tải...</div>;
-  if (error || projectsError || !projects)
-    return (
-      <div className="p-10 text-red-500">Không thể tải danh sách dự án</div>
-    );
-
-  // Định dạng ngày kiểu Việt Nam
+  // --- TẤT CẢ HOOK ĐẶT TRƯỚC RETURN ---
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "--";
     try {
@@ -39,32 +32,49 @@ export default function ProjectsPage() {
     }
   };
 
-  // Filter & Sort
   const filteredProjects = useMemo(() => {
-    let filtered = projects.filter((project) =>
-      project.title.toLowerCase().includes(filter.toLowerCase()),
-    );
-    // Hàm get thời gian, ưu tiên null xuống cuối
+    let filtered =
+      projects?.filter((project) =>
+        project.title.toLowerCase().includes(filter.toLowerCase()),
+      ) ?? [];
     const getTime = (date: string | undefined) =>
       date ? new Date(date).getTime() : -Infinity;
 
+    let sorted: typeof filtered = [];
     switch (sortType) {
       case "start-desc":
-        return filtered.sort(
+        sorted = [...filtered].sort(
           (a, b) => getTime(b.startTime) - getTime(a.startTime),
         );
+        break;
       case "start-asc":
-        return filtered.sort(
+        sorted = [...filtered].sort(
           (a, b) => getTime(a.startTime) - getTime(b.startTime),
         );
+        break;
       case "end-asc":
-        return filtered.sort((a, b) => getTime(a.endTime) - getTime(b.endTime));
+        sorted = [...filtered].sort(
+          (a, b) => getTime(a.endTime) - getTime(b.endTime),
+        );
+        break;
       case "end-desc":
-        return filtered.sort((a, b) => getTime(b.endTime) - getTime(a.endTime));
+        sorted = [...filtered].sort(
+          (a, b) => getTime(b.endTime) - getTime(a.endTime),
+        );
+        break;
       default:
-        return filtered;
+        sorted = filtered;
     }
+    return sorted;
   }, [projects, filter, sortType]);
+
+  // --- CÁC RETURN ĐIỀU KIỆN ĐỂ SAU TẤT CẢ HOOK ---
+  if (isLoading || isProjectsLoading)
+    return <div className="p-10">Đang tải...</div>;
+  if (error || projectsError || !projects)
+    return (
+      <div className="p-10 text-red-500">Không thể tải danh sách dự án</div>
+    );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-neutral-900">
@@ -96,7 +106,15 @@ export default function ProjectsPage() {
             <div className="relative">
               <select
                 value={sortType}
-                onChange={(e) => setSortType(e.target.value as any)}
+                onChange={(e) =>
+                  setSortType(
+                    e.target.value as
+                      | "start-desc"
+                      | "start-asc"
+                      | "end-asc"
+                      | "end-desc",
+                  )
+                }
                 className="block w-full rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
               >
                 <option value="start-desc">Mới nhất (ngày bắt đầu)</option>

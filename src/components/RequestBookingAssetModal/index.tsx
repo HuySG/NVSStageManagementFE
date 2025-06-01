@@ -8,7 +8,7 @@ import {
   useCreateAssetRequestBookingMutation,
   useGetAssetBookingsQuery,
 } from "@/state/api";
-import { CalendarDays, X, Loader2 } from "lucide-react";
+import { CalendarDays, X, Loader2, DoorOpen } from "lucide-react";
 import AssetBookingCalendar from "@/components/AssetBookingCalendar";
 
 interface RequestBookingAssetModalProps {
@@ -52,6 +52,12 @@ const recurrenceTypeLabel: Record<RecurrenceType, string> = {
   MONTHLY: "Hàng tháng",
 };
 
+const ALLOWED_ASSET_TYPE_ID = "de2b478c-a4a4-4b9d-9f39-e3a7ee5b29da";
+const ALLOWED_ASSET_TYPE_NAME = "Không gian sử dụng (Phòng/Sân khấu)";
+
+const MAX_TITLE_LENGTH = 255;
+const MAX_DESCRIPTION_LENGTH = 800;
+
 const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
   isOpen,
   onClose,
@@ -59,47 +65,40 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
 }) => {
   const { data: assets } = useGetAllAssetQuery();
 
-  // Asset filter
-  const assetTypes = useMemo(() => {
-    if (!assets) return [];
-    const typeMap: Record<string, any> = {};
-    assets.forEach((a: any) => {
-      if (a.assetType?.id && !typeMap[a.assetType.id]) {
-        typeMap[a.assetType.id] = {
-          id: a.assetType.id,
-          name: a.assetType.name,
-        };
-      }
-    });
-    return Object.values(typeMap);
-  }, [assets]);
-
-  const [selectedAssetType, setSelectedAssetType] = useState<string>("");
+  // ==== State ====
   const [selectedAssetCategory, setSelectedAssetCategory] =
     useState<string>("");
   const [assetId, setAssetId] = useState<string>("");
 
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
+  // 1. Lọc các asset hợp lệ theo loại
+  const allowedAssets = useMemo(() => {
+    if (!assets) return [];
+    return assets.filter((a: any) => a.assetType?.id === ALLOWED_ASSET_TYPE_ID);
+  }, [assets]);
+
+  // 2. Lấy unique category từ asset hợp lệ
   const assetCategories = useMemo(() => {
-    if (!assets || !selectedAssetType) return [];
-    const categoryMap: Record<string, any> = {};
-    assets.forEach((a: any) => {
-      if (a.assetType?.id === selectedAssetType && a.category) {
-        categoryMap[a.category.categoryID] = a.category;
+    const map: Record<string, any> = {};
+    allowedAssets.forEach((a: any) => {
+      if (a.category?.categoryID) {
+        map[a.category.categoryID] = a.category;
       }
     });
-    return Object.values(categoryMap);
-  }, [assets, selectedAssetType]);
+    return Object.values(map);
+  }, [allowedAssets]);
 
+  // 3. Lọc asset theo category được chọn
   const filteredAssets = useMemo(() => {
-    if (!assets) return [];
-    return assets.filter(
-      (a: any) =>
-        a.assetType?.id === selectedAssetType &&
-        a.category?.categoryID === selectedAssetCategory,
+    if (!selectedAssetCategory) return [];
+    return allowedAssets.filter(
+      (a: any) => a.category?.categoryID === selectedAssetCategory,
     );
-  }, [assets, selectedAssetType, selectedAssetCategory]);
+  }, [allowedAssets, selectedAssetCategory]);
 
-  // Booking states
+  // ==== Booking states ====
   const [bookingType, setBookingType] = useState<BookingType>("ONE_TIME");
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("NONE");
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(1);
@@ -127,7 +126,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
   useEffect(() => {
     setSelectedAssetCategory("");
     setAssetId("");
-  }, [selectedAssetType]);
+  }, [allowedAssets.length]);
   useEffect(() => {
     setAssetId("");
   }, [selectedAssetCategory]);
@@ -144,59 +143,106 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
   }, [recurrenceType]);
   useEffect(() => {
     if (isOpen) {
-      setSelectedAssetType("");
       setSelectedAssetCategory("");
       setAssetId("");
+      setTitle("");
+      setDescription("");
+      setBookingType("ONE_TIME");
+      setRecurrenceType("NONE");
+      setRecurrenceInterval(1);
+      setSelectedDays([]);
+      setDayOfMonth(1);
+      setFallbackToLastDay(false);
+      setStartTime(now.toISOString().slice(0, 16));
+      setEndTime(defaultEnd.toISOString().slice(0, 16));
+      setRecurrenceEndDate(tomorrow.toISOString().split("T")[0]);
     }
+    // eslint-disable-next-line
   }, [isOpen]);
 
-  // Submit
+  // ==== Validate & Submit ====
   const handleSubmit = async () => {
     try {
+      // Validate các trường bắt buộc
       if (!assetId) {
-        toast.error("Vui lòng chọn tài sản!");
+        toast.error("Vui lòng chọn không gian!");
         return;
       }
-      const sampleStart = new Date(startTime);
-      const durationMs = new Date(endTime).getTime() - sampleStart.getTime();
-      if (durationMs <= 0)
-        throw new Error("Thời gian kết thúc phải sau thời gian bắt đầu.");
+      if (!selectedAssetCategory) {
+        toast.error("Vui lòng chọn danh mục!");
+        return;
+      }
+      if (!title.trim()) {
+        toast.error("Vui lòng nhập tiêu đề!");
+        return;
+      }
+      if (!description.trim()) {
+        toast.error("Vui lòng nhập mô tả!");
+        return;
+      }
+      if (title.length > MAX_TITLE_LENGTH) {
+        toast.error(`Tiêu đề không được vượt quá ${MAX_TITLE_LENGTH} ký tự!`);
+        return;
+      }
+      if (description.length > MAX_DESCRIPTION_LENGTH) {
+        toast.error(
+          `Mô tả không được vượt quá ${MAX_DESCRIPTION_LENGTH} ký tự!`,
+        );
+        return;
+      }
 
-      // Weekly
-      if (recurrenceType === "WEEKLY") {
-        if (!selectedDays.length)
-          throw new Error("Hãy chọn ít nhất một ngày trong tuần.");
-        const dow = sampleStart.getDay();
-        if (!selectedDays.includes(weekDaysList[dow])) {
-          throw new Error(
-            "Ngày bắt đầu mẫu phải thuộc vào ngày trong tuần đã chọn.",
-          );
+      // Validate thời gian không được ở quá khứ
+      const nowTime = new Date();
+      const sampleStart = new Date(startTime);
+      const sampleEnd = new Date(endTime);
+
+      // Lấy giờ hiện tại, reset giây, ms để so với input
+      nowTime.setSeconds(0, 0);
+
+      if (sampleStart < nowTime) {
+        toast.error("Thời gian bắt đầu phải từ hiện tại trở đi!");
+        return;
+      }
+      if (sampleEnd < nowTime) {
+        toast.error("Thời gian kết thúc phải từ hiện tại trở đi!");
+        return;
+      }
+      if (sampleEnd <= sampleStart) {
+        toast.error("Thời gian kết thúc phải sau thời gian bắt đầu!");
+        return;
+      }
+
+      // Recurring: validate các trường riêng
+      if (bookingType === "RECURRING") {
+        if (recurrenceInterval < 1) {
+          toast.error("Khoảng cách chu kỳ phải lớn hơn 0!");
+          return;
+        }
+        if (recurrenceType === "WEEKLY" && selectedDays.length === 0) {
+          toast.error("Chọn ít nhất một ngày trong tuần!");
+          return;
+        }
+        if (
+          recurrenceType === "MONTHLY" &&
+          (dayOfMonth < 1 || dayOfMonth > 31)
+        ) {
+          toast.error("Ngày trong tháng phải từ 1 đến 31!");
+          return;
+        }
+        const recEnd = new Date(recurrenceEndDate);
+        if (recEnd <= sampleStart) {
+          toast.error("Ngày kết thúc chu kỳ phải sau ngày bắt đầu!");
+          return;
         }
       }
-      // Monthly
-      if (recurrenceType === "MONTHLY") {
-        const year = sampleStart.getFullYear();
-        const month = sampleStart.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        if (dayOfMonth > daysInMonth) {
-          if (fallbackToLastDay) sampleStart.setDate(daysInMonth);
-          else
-            throw new Error(
-              `Tháng này chỉ có ${daysInMonth} ngày, hãy bật fallback hoặc chọn ngày nhỏ hơn!`,
-            );
-        } else sampleStart.setDate(dayOfMonth);
-      }
-      const recEnd = new Date(recurrenceEndDate);
-      if (recurrenceType !== "NONE" && recEnd <= sampleStart)
-        throw new Error("Ngày kết thúc chu kỳ phải sau ngày bắt đầu!");
 
       const payload = {
-        title: "",
-        description: "",
+        title: title.trim(),
+        description: description.trim(),
         assetID: assetId,
         taskID: taskId,
         startTime: sampleStart.toISOString(),
-        endTime: new Date(sampleStart.getTime() + durationMs).toISOString(),
+        endTime: sampleEnd.toISOString(),
         bookingType,
         recurrenceType,
         recurrenceInterval,
@@ -205,6 +251,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
         fallbackToLastDay,
         recurrenceEndDate,
       };
+
       await createBooking(payload).unwrap();
       toast.success("Đặt lịch thành công!");
       onClose();
@@ -213,7 +260,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
     }
   };
 
-  // Calendar section
+  // ==== Calendar section ====
   const {
     data: bookings,
     isLoading: loadingCalendar,
@@ -236,7 +283,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="flex max-h-[95vh] min-h-[640px] w-full max-w-5xl flex-col overflow-y-auto rounded-3xl border border-blue-100 bg-white/95 shadow-2xl transition-all dark:bg-dark-secondary md:flex-row">
+      <div className="flex max-h-[98vh] min-h-[750px] w-full max-w-[1200px] flex-col overflow-y-auto rounded-3xl border border-blue-100 bg-white/95 p-0 shadow-2xl transition-all dark:bg-dark-secondary md:flex-row">
         {/* LEFT: Form */}
         <div className="relative flex w-full flex-col justify-between p-5 md:w-[54%] md:p-10">
           {/* Close btn */}
@@ -250,33 +297,59 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
           <div>
             <div className="mb-7 mt-3 flex flex-col items-center">
               <div className="mb-2 rounded-xl bg-blue-100 p-3 text-blue-600">
-                <CalendarDays size={32} />
+                <DoorOpen size={32} />
               </div>
               <h2 className="mb-1 text-2xl font-extrabold tracking-tight text-blue-700 dark:text-blue-400">
-                Đặt lịch tài sản
+                Đặt lịch không gian (Phòng/Sân khấu)
               </h2>
               <p className="text-center text-xs text-gray-500">
-                Chọn loại tài sản, danh mục và tài sản, sau đó đặt lịch mượn.{" "}
-                <br />
-                <span className="text-red-500">*</span> Bắt buộc.
+                Chỉ có thể chọn tài sản thuộc loại{" "}
+                <span className="font-semibold text-blue-500">
+                  Không gian sử dụng (Phòng/Sân khấu)
+                </span>
+                .<br />
+                <span className="text-red-500">*</span> Thông tin bắt buộc.
               </p>
             </div>
-            {/* Loại tài sản */}
+            {/* TIÊU ĐỀ */}
+            <div className="mb-4">
+              <label className="mb-1 block font-semibold">
+                Tiêu đề <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                className="input-custom"
+                placeholder="Nhập tiêu đề yêu cầu"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={MAX_TITLE_LENGTH}
+                required
+              />
+            </div>
+            {/* MÔ TẢ */}
+            <div className="mb-4">
+              <label className="mb-1 block font-semibold">
+                Mô tả <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                className="input-custom"
+                placeholder="Nhập mô tả chi tiết yêu cầu đặt không gian"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                maxLength={MAX_DESCRIPTION_LENGTH}
+                required
+              />
+            </div>
+            {/* Loại tài sản - chỉ 1 lựa chọn */}
             <div className="mb-4">
               <label className="mb-1 block font-semibold">
                 Loại tài sản <span className="text-red-500">*</span>
               </label>
-              <select
-                value={selectedAssetType}
-                onChange={(e) => setSelectedAssetType(e.target.value)}
-                className="input-custom"
-              >
-                <option value="">-- Chọn loại tài sản --</option>
-                {assetTypes.map((type: any) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
+              <select className="input-custom" disabled>
+                <option value={ALLOWED_ASSET_TYPE_ID}>
+                  {ALLOWED_ASSET_TYPE_NAME}
+                </option>
               </select>
             </div>
             {/* Danh mục */}
@@ -288,7 +361,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
                 value={selectedAssetCategory}
                 onChange={(e) => setSelectedAssetCategory(e.target.value)}
                 className="input-custom"
-                disabled={!selectedAssetType}
+                disabled={assetCategories.length === 0}
               >
                 <option value="">-- Chọn danh mục --</option>
                 {assetCategories.map((cat: any) => (
@@ -301,7 +374,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
             {/* Tài sản */}
             <div className="mb-4">
               <label className="mb-1 block font-semibold">
-                Tài sản <span className="text-red-500">*</span>
+                Không gian sử dụng <span className="text-red-500">*</span>
               </label>
               <select
                 value={assetId}
@@ -309,7 +382,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
                 className="input-custom"
                 disabled={!selectedAssetCategory}
               >
-                <option value="">-- Chọn tài sản --</option>
+                <option value="">-- Chọn không gian --</option>
                 {filteredAssets.map((asset: any) => (
                   <option key={asset.assetID} value={asset.assetID}>
                     {asset.assetName}
@@ -336,7 +409,7 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
                 ))}
               </select>
             </div>
-            {/* Thời gian, Recurring */}
+            {/* Các trường recurring giữ nguyên như cũ */}
             {bookingType === "ONE_TIME" && (
               <>
                 <div className="mb-4">
@@ -523,12 +596,12 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
         {/* RIGHT: Calendar */}
         <div className="flex min-h-[320px] w-full flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50 p-4 pt-0 dark:bg-dark-tertiary md:min-h-[640px] md:w-[46%] md:border-l md:border-blue-100 dark:md:border-gray-700">
           <div className="mb-3 mt-5 flex items-center gap-2 text-center text-lg font-bold text-blue-700">
-            <CalendarDays size={20} /> Lịch đã đặt của tài sản
+            <CalendarDays size={20} /> Lịch đã đặt không gian
           </div>
           <div className="flex min-h-[320px] w-full max-w-[480px] items-center justify-center md:min-h-[480px]">
             {!assetId && (
               <div className="w-full text-center italic text-gray-400">
-                Chọn tài sản để xem lịch đặt
+                Chọn không gian để xem lịch đặt
               </div>
             )}
             {assetId && (
@@ -537,7 +610,11 @@ const RequestBookingAssetModal: React.FC<RequestBookingAssetModalProps> = ({
                   events={events}
                   loading={loadingCalendar}
                   error={errorCalendar}
-                  height={window.innerWidth >= 768 ? 440 : 320}
+                  height={
+                    typeof window !== "undefined" && window.innerWidth >= 768
+                      ? 440
+                      : 320
+                  }
                 />
               </div>
             )}

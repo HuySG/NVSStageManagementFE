@@ -63,22 +63,17 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem("expireTime", expireTime.toString());
         setIsAuthenticated(true);
 
-        await refetch(); // ✅ Gọi lại API để cập nhật userInfo
+        await refetch();
 
         // Chờ userInfo cập nhật rồi mới set
         if (userInfo) {
           setUser(userInfo);
           localStorage.setItem("user", JSON.stringify(userInfo));
         }
-        router.push("/home"); // ✅ Redirect về /home cho tất cả role
+        router.push("/home");
 
         // Tự động logout sau 1 giờ
-        setTimeout(
-          () => {
-            logout();
-          },
-          60 * 60 * 1000,
-        );
+        setTimeout(logout, 12 * 60 * 60 * 1000);
       } else {
         throw new Error("Invalid credentials");
       }
@@ -97,7 +92,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   if (!isAuthenticated && pathname !== "/login") {
-    return <div>Loading...</div>; // Hiển thị loading trong khi kiểm tra trạng thái đăng nhập
+    return <div>Loading...</div>;
   }
 
   return (

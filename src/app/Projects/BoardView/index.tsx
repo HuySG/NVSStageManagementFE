@@ -10,7 +10,7 @@ import {
   useUpdateTaskMutation,
   useUpdateTaskStatusMutation,
 } from "@/state/api";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Task as TaskType } from "@/state/api";
@@ -93,12 +93,23 @@ const BoardView = ({
     departmentUser ?? "",
     {
       skip: !departmentUser || userRole !== "Leader",
+      pollingInterval: 3000,
     },
   );
-  const tasks =
-    userRole === "Leader"
-      ? tasksByDepartment?.filter((task) => task.milestoneId === id) || []
-      : tasksByUser?.filter((task) => task.milestoneId === id) || [];
+
+  // Lọc task theo đúng logic cho Leader: chỉ những task do mình tạo, cùng milestone
+  const tasks = useMemo(() => {
+    if (userRole === "Leader") {
+      return (
+        tasksByDepartment?.filter(
+          (task) => task.milestoneId === id && task.createBy === userId,
+        ) || []
+      );
+    } else {
+      return tasksByUser?.filter((task) => task.milestoneId === id) || [];
+    }
+  }, [userRole, tasksByDepartment, tasksByUser, id, userId]);
+
   const [updateTaskStatus] = useUpdateTaskStatusMutation();
   const [updateTask] = useUpdateTaskMutation();
   const { data: users } = useGetUserByDepartmentQuery(departmentUser!);
@@ -115,7 +126,7 @@ const BoardView = ({
         ...updatedTask,
       });
       setEditingTask(null);
-      refetch();
+      await refetch();
     }
   };
 
@@ -136,6 +147,7 @@ const BoardView = ({
               onEditTask={(task) => {
                 setEditingTask(task);
                 handleTaskClick(task.taskID);
+                refetch();
               }}
               onDeleteTask={async (taskId) => {
                 await updateTask({ taskID: taskId, status: "Deleted" });
@@ -171,6 +183,7 @@ const BoardView = ({
               onSave={handleTaskEdit}
               milestoneStartDate={milestoneStartDate}
               milestoneEndDate={milestoneEndDate}
+              currentUser={currentUser ?? { role: { roleName: "Unknown" } }}
             />
           </div>
           {isRequestModalOpen && (
@@ -186,7 +199,6 @@ const BoardView = ({
     </>
   );
 };
-
 type TaskColumnProps = {
   status: string;
   tasks: TaskType[];

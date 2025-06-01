@@ -3,100 +3,96 @@ import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsSidebarCollapsed } from "@/state";
 import {
   useGetProjectsDepartmentQuery,
-  useGetProjectsQuery,
   useGetUserInfoQuery,
 } from "@/state/api";
 import {
-  AlertCircle,
-  AlertOctagon,
-  AlertTriangle,
   Briefcase,
-  ChevronDown,
-  ChevronUp,
-  FileChartPie,
   Home,
-  Layers3,
-  LockIcon,
-  LucideIcon,
-  Search,
-  Settings,
-  ShieldAlert,
-  User,
-  Users,
   Workflow,
+  FileChartPie,
+  LockIcon,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useState } from "react";
+import React from "react";
 import UserProfile from "../UserProfile";
 
 const Sidebar = () => {
-  const [showProjects, setShowProjects] = useState(true);
-  const [showPriority, setShowPriority] = useState(true);
   const dispatch = useAppDispatch();
   const isSidebarCollapsed = useAppSelector(
     (state) => state.global.isSidebarCollapsed,
   );
   const { data: user, isLoading, error } = useGetUserInfoQuery();
-  const departmentId = user?.department?.id ?? ""; // Gán giá trị mặc định là chuỗi rỗng
+  const departmentId = user?.department?.id ?? "";
   const {
     data: projects,
     isLoading: isProjectsLoading,
     error: projectsError,
   } = useGetProjectsDepartmentQuery(departmentId, {
-    skip: !departmentId, // Chỉ gọi API nếu departmentId có giá trị
+    skip: !departmentId,
   });
-  if (isLoading) return <div>Loading user info...</div>;
-  if (error || !user) return <div>Failed to load user info</div>;
-  if (isProjectsLoading) return <div>Loading projects...</div>;
-  if (projectsError) return <div>Failed to load projects</div>;
 
-  const sidebarClassnames = `fixed flex flex-col h-[100%] justify-between shadow-xl transition-all duration-300 h-full z-40 dark:bg-black overflow-y-auto bg-white  ${
-    isSidebarCollapsed ? "w-0 hidden" : "w-64"
-  }`;
+  // Loading/error UI
+  if (isLoading) return <div>Đang tải...</div>;
+  if (error || !user) return <div>Lỗi tải thông tin người dùng</div>;
+  if (isProjectsLoading) return <div>Đang tải dự án...</div>;
+  if (projectsError) return <div>Lỗi tải danh sách dự án</div>;
+
+  // Sidebar styles
+  const sidebarClassnames = `
+    fixed left-0 top-0 z-40 h-full flex flex-col justify-between
+    transition-all duration-300 bg-white dark:bg-[#131522] shadow-xl
+    ${isSidebarCollapsed ? "w-0 hidden" : "w-64"}
+  `;
+
   return (
     <div className={sidebarClassnames}>
-      <div className="flex h-[100] w-full flex-col justify-start">
-        <div className="z-50 flex min-h-[56px] w-64 items-center justify-between bg-white px-6 pt-3 dark:bg-black">
-          <div className="text-xl font-bold text-gray-800 dark:text-white">
+      <div className="flex h-full flex-col">
+        {/* Header */}
+        <div className="relative flex items-center justify-between px-6 pb-2 pt-5">
+          <span className="text-2xl font-extrabold tracking-tight text-blue-700 dark:text-white">
             NVS
-          </div>
-          {isSidebarCollapsed ? null : (
+          </span>
+          {!isSidebarCollapsed && (
             <button
-              className="py-3"
-              onClick={() => {
-                dispatch(setIsSidebarCollapsed(!isSidebarCollapsed));
-              }}
+              aria-label="Đóng sidebar"
+              className="group rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => dispatch(setIsSidebarCollapsed(true))}
             >
-              <X className="hover: h-6 w-6 text-gray-800 dark:text-white" />
+              <X className="h-6 w-6 text-gray-800 group-hover:text-blue-700 dark:text-gray-200" />
             </button>
           )}
         </div>
-        {/* TEAM */}
-        <div className="flex items-center gap-5 border-y-[1.5px] border-gray-200 px-8 py-4 dark:border-gray-700">
-          <Image src="/logo.png" alt="logo" width={40} height={40} />
-          <div>
-            <h3 className="text-md font-bold tracking-widest dark:text-gray-200">
-              {user.department.name || "No Department"}
+
+        {/* Department Card */}
+        <div className="flex items-center gap-4 border-y bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-[#191B2A]">
+          <div className="relative flex-shrink-0">
+            <Image
+              src="https://firebasestorage.googleapis.com/v0/b/nvs-system.firebasestorage.app/o/attachments%2FHCMCONS_Logo.png?alt=media&token=d6df365d-8944-43b0-8bcf-ec36ba0cc6b1"
+              alt="logo"
+              width={42}
+              height={42}
+              className="rounded-full border border-blue-200 bg-white p-1 dark:border-gray-700"
+            />
+          </div>
+          <div className="flex flex-col">
+            <h3 className="text-base font-semibold leading-tight tracking-wide text-gray-800 dark:text-gray-100">
+              {user.department?.name || "No Department"}
             </h3>
-            <div className="mt-1 flex items-start gap-2">
-              <LockIcon className="mt-[0.1rem] h-3 w-3 text-gray-500 dark:text-gray-400" />
-              <p className="text-xs text-gray-500">Private</p>
+            <div className="mt-1 flex items-center gap-1">
+              <LockIcon className="h-3 w-3 text-gray-400" />
+              <span className="text-xs text-gray-500">Private</span>
             </div>
           </div>
         </div>
-        {/* Navbar Links */}
-        <nav className="z-10 w-full">
-          {user.role.roleName === "Leader" && (
+
+        {/* Main nav */}
+        <nav className="flex flex-1 flex-col gap-1 py-5">
+          {user.role.roleName === "Leader" ? (
             <>
               <SidebarLink icon={Home} label="Home" href="/" />
-              <SidebarLink icon={Briefcase} label="TimeLine" href="/timeline" />
-              <SidebarLink icon={Search} label="Search" href="/search" />
-              <SidebarLink icon={Settings} label="Settings" href="/settings" />
-              <SidebarLink icon={User} label="Users" href="/users" />
-              <SidebarLink icon={Users} label="Teams" href="/teams" />
               <SidebarLink
                 icon={Workflow}
                 label="Yêu Cầu Đang Chờ"
@@ -114,14 +110,9 @@ const Sidebar = () => {
               />
               <SidebarLink icon={Briefcase} label="Projects" href="/Projects" />
             </>
-          )}
-          {user.role.roleName === "Staff" && (
+          ) : (
             <>
               <SidebarLink icon={Home} label="Home" href="/" />
-              <SidebarLink icon={Search} label="Search" href="/search" />
-              <SidebarLink icon={Settings} label="Settings" href="/settings" />
-              <SidebarLink icon={User} label="Users" href="/users" />
-              <SidebarLink icon={Users} label="Teams" href="/teams" />
               <SidebarLink
                 icon={FileChartPie}
                 label="Theo Dõi Yêu Cầu"
@@ -137,14 +128,17 @@ const Sidebar = () => {
           )}
         </nav>
       </div>
-      <UserProfile />
+      {/* User profile at bottom */}
+      <div className="mb-3 px-3">
+        <UserProfile />
+      </div>
     </div>
   );
 };
 
 interface SiderlinkProps {
   href: string;
-  icon: LucideIcon;
+  icon: React.ElementType;
   label: string;
 }
 
@@ -152,21 +146,20 @@ const SidebarLink = ({ href, icon: Icon, label }: SiderlinkProps) => {
   const pathname = usePathname();
   const isActive =
     pathname === href || (pathname === "/" && href === "/dashboard");
-
   return (
-    <Link href={href} className="w-full">
+    <Link href={href} className="block w-full">
       <div
-        className={`dark:hover: relative flex cursor-pointer items-center gap-3 transition-colors hover:bg-gray-100 dark:bg-black dark:hover:bg-gray-700 ${
-          isActive ? "bg-gray-100 text-white dark:bg-gray-600" : ""
-        } justify-start px-8 py-3`}
+        className={`group relative my-1 flex items-center gap-3 rounded-lg px-7 py-3 font-medium transition-all ${
+          isActive
+            ? "bg-blue-100 text-blue-700 shadow dark:bg-[#212654] dark:text-blue-300"
+            : "text-gray-700 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-[#23274B]"
+        } `}
       >
+        <Icon className="h-5 w-5 shrink-0" />
+        <span className="truncate">{label}</span>
         {isActive && (
-          <div className="absolute left-0 top-0 h-[100%] w-[5px] bg-blue-200" />
+          <span className="absolute left-0 top-2 h-7 w-[4px] rounded-r bg-blue-600"></span>
         )}
-        <Icon className="h-6 w-6 text-gray-800 dark:text-gray-100" />
-        <span className={`font-medium text-gray-800 dark:text-gray-100`}>
-          {label}
-        </span>
       </div>
     </Link>
   );

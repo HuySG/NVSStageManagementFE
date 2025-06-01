@@ -30,6 +30,14 @@ const STATUS_VI_MAP: Record<string, string> = {
   Completed: "Hoàn thành",
 };
 
+const PRIORITY_VI_MAP: Record<string, string> = {
+  Backlog: "Thấp nhất",
+  Low: "Thấp",
+  Medium: "Trung bình",
+  High: "Cao",
+  Urgent: "Khẩn cấp",
+};
+
 const ModalNewTask = ({
   isOpen,
   onClose,
@@ -42,7 +50,7 @@ const ModalNewTask = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Status>(Status.ToDo);
-  const [priority, setPriority] = useState<Priority>(Priority.Backlog);
+  const [priority, setPriority] = useState<Priority>();
   const [tag, setTag] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -128,6 +136,8 @@ const ModalNewTask = ({
       setStartDate("");
       setEndDate("");
       setErrorMsg(null);
+      setPriority(Priority.Backlog);
+      setStatus(Status.ToDo);
     } catch (error) {
       console.error("Lỗi khi tạo task:", error);
       setErrorMsg("Đã xảy ra lỗi khi tạo công việc. Vui lòng thử lại!");
@@ -205,6 +215,27 @@ const ModalNewTask = ({
             disabled={!isReady}
           />
         </div>
+        {/* Mức độ ưu tiên */}
+        <div>
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Mức độ ưu tiên <span className="text-red-500">*</span>
+          </label>
+          <select
+            className={inputStyles}
+            value={priority}
+            onChange={(e) =>
+              setPriority(Priority[e.target.value as keyof typeof Priority])
+            }
+            required
+            disabled={!isReady}
+          >
+            {Object.keys(Priority).map((key) => (
+              <option key={key} value={key}>
+                {PRIORITY_VI_MAP[key]}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
             Trạng thái <span className="text-red-500">*</span>
@@ -221,12 +252,6 @@ const ModalNewTask = ({
             <option value={Status.ToDo}>{STATUS_VI_MAP["ToDo"]}</option>
             <option value={Status.WorkInProgress}>
               {STATUS_VI_MAP["WorkInProgress"]}
-            </option>
-            <option value={Status.UnderReview}>
-              {STATUS_VI_MAP["UnderReview"]}
-            </option>
-            <option value={Status.Completed}>
-              {STATUS_VI_MAP["Completed"]}
             </option>
           </select>
         </div>

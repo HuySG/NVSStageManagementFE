@@ -23,6 +23,7 @@ interface EditTaskModalProps {
   onSave: (updatedTask: Partial<TaskType>) => void;
   milestoneStartDate: string;
   milestoneEndDate: string;
+  currentUser: { role: { roleName: string } }; // thêm dòng này
 }
 
 const EditTaskModal = ({
@@ -32,6 +33,7 @@ const EditTaskModal = ({
   onSave,
   milestoneStartDate,
   milestoneEndDate,
+  currentUser,
 }: EditTaskModalProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -58,6 +60,9 @@ const EditTaskModal = ({
   const [isRequestAssetOpen, setIsRequestAssetOpen] = useState(false);
   const [showComments, setShowComments] = useState(true);
   const [dateError, setDateError] = useState<string>("");
+
+  const isStaff = currentUser?.role?.roleName === "Staff";
+  const staffUsers = users.filter((u) => u.role?.roleName === "Staff");
 
   // Validate startDate & endDate phải nằm trong milestone
   useEffect(() => {
@@ -190,7 +195,7 @@ const EditTaskModal = ({
         {/* Header */}
         <div className="mb-2 flex items-center justify-between border-b pb-3">
           <h2 className="text-lg font-bold text-blue-700 dark:text-blue-300">
-            Chỉnh sửa công việc
+            {isStaff ? "Xem chi tiết công việc" : "Chỉnh sửa công việc"}
           </h2>
           <button
             onClick={onClose}
@@ -210,6 +215,7 @@ const EditTaskModal = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 focus:ring-2 focus:ring-blue-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+              readOnly={isStaff}
             />
           </div>
           <div>
@@ -219,6 +225,7 @@ const EditTaskModal = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 focus:ring-2 focus:ring-blue-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+              readOnly={isStaff}
             />
           </div>
 
@@ -230,6 +237,7 @@ const EditTaskModal = ({
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                disabled={isStaff}
               >
                 <option value={Status.ToDo}>Cần làm</option>
                 <option value={Status.WorkInProgress}>Đang làm</option>
@@ -245,6 +253,7 @@ const EditTaskModal = ({
                   setPriority(e.target.value as TaskType["priority"])
                 }
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                disabled={isStaff}
               >
                 <option value="Low">Thấp</option>
                 <option value="Medium">Trung bình</option>
@@ -265,6 +274,8 @@ const EditTaskModal = ({
                 max={milestoneEndDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                readOnly={isStaff}
+                disabled={isStaff}
               />
             </div>
             <div>
@@ -276,6 +287,8 @@ const EditTaskModal = ({
                 max={milestoneEndDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                readOnly={isStaff}
+                disabled={isStaff}
               />
             </div>
           </div>
@@ -297,6 +310,7 @@ const EditTaskModal = ({
                 onChange={(e) => setTags(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
                 placeholder="ex: Design, Backend"
+                readOnly={isStaff}
               />
             </div>
             <div>
@@ -305,22 +319,23 @@ const EditTaskModal = ({
               </label>
               <select
                 onChange={(e) => {
-                  const selectedUser = users.find(
+                  const selectedUser = staffUsers.find(
                     (u) => u.id === e.target.value,
                   );
                   setAssigneeinfo(selectedUser);
                 }}
                 value={assigneeinfo?.id || ""}
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                disabled={isStaff}
               >
                 <option value="">Chọn user</option>
-                {users.map((user) => (
+                {staffUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.fullName}
                   </option>
                 ))}
               </select>
-              {assigneeinfo && (
+              {!isStaff && assigneeinfo && (
                 <button
                   onClick={() => setAssigneeinfo(undefined)}
                   className="mt-1 text-xs text-red-500"
@@ -336,7 +351,9 @@ const EditTaskModal = ({
             <label className="font-medium dark:text-white">Theo dõi</label>
             <select
               onChange={(e) => {
-                const selectedUser = users.find((u) => u.id === e.target.value);
+                const selectedUser = staffUsers.find(
+                  (u) => u.id === e.target.value,
+                );
                 if (
                   selectedUser &&
                   !watchers.some((w: Watcher) => w.userID === selectedUser.id)
@@ -354,9 +371,10 @@ const EditTaskModal = ({
                 }
               }}
               className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+              disabled={isStaff}
             >
               <option value="">Chọn người theo dõi</option>
-              {users.map((user) => (
+              {staffUsers.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.fullName}
                 </option>
@@ -369,16 +387,18 @@ const EditTaskModal = ({
                   className="flex items-center gap-2 rounded bg-gray-200 px-3 py-1 text-xs dark:bg-neutral-700"
                 >
                   <span>{user.fullName}</span>
-                  <button
-                    onClick={() =>
-                      setWatcher(
-                        watchers.filter((w) => w.userID !== user.userID),
-                      )
-                    }
-                    className="text-red-500"
-                  >
-                    ×
-                  </button>
+                  {!isStaff && (
+                    <button
+                      onClick={() =>
+                        setWatcher(
+                          watchers.filter((w) => w.userID !== user.userID),
+                        )
+                      }
+                      className="text-red-500"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -392,15 +412,18 @@ const EditTaskModal = ({
                 type="file"
                 onChange={(e) => setNewAttachment(e.target.files?.[0] || null)}
                 className="flex-1"
+                disabled={isStaff}
               />
-              <button
-                type="button"
-                disabled={!newAttachment}
-                className={`flex items-center gap-2 rounded-lg px-3 py-1 font-medium text-white transition ${newAttachment ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400"}`}
-                onClick={handleUploadFile}
-              >
-                <UploadCloud size={18} /> Tải lên
-              </button>
+              {!isStaff && (
+                <button
+                  type="button"
+                  disabled={!newAttachment}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-1 font-medium text-white transition ${newAttachment ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-400"}`}
+                  onClick={handleUploadFile}
+                >
+                  <UploadCloud size={18} /> Tải lên
+                </button>
+              )}
             </div>
             <div className="mt-2 flex flex-col gap-2">
               {attachments.map((file) => (
@@ -427,18 +450,20 @@ const EditTaskModal = ({
                       {file.fileName}
                     </a>
                   </div>
-                  <button
-                    onClick={() =>
-                      setAttachments((prev) =>
-                        prev.filter(
-                          (f) => f.attachmentId !== file.attachmentId,
-                        ),
-                      )
-                    }
-                    className="ml-2 text-red-500"
-                  >
-                    ×
-                  </button>
+                  {!isStaff && (
+                    <button
+                      onClick={() =>
+                        setAttachments((prev) =>
+                          prev.filter(
+                            (f) => f.attachmentId !== file.attachmentId,
+                          ),
+                        )
+                      }
+                      className="ml-2 text-red-500"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -483,11 +508,12 @@ const EditTaskModal = ({
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-1 rounded border border-gray-300 p-2 text-xs dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                 placeholder="Nhập bình luận..."
+                readOnly={isStaff}
               />
               <button
                 onClick={handleAddComment}
-                disabled={!newComment.trim()}
-                className={`rounded-lg px-3 py-1 text-xs text-white transition ${newComment.trim() ? "bg-blue-500 hover:bg-blue-600" : "cursor-not-allowed bg-gray-400"}`}
+                disabled={!newComment.trim() || isStaff}
+                className={`rounded-lg px-3 py-1 text-xs text-white transition ${newComment.trim() && !isStaff ? "bg-blue-500 hover:bg-blue-600" : "cursor-not-allowed bg-gray-400"}`}
               >
                 Thêm
               </button>
@@ -500,7 +526,7 @@ const EditTaskModal = ({
               onClick={onClose}
               className="rounded-lg bg-gray-300 px-4 py-2 text-sm hover:bg-gray-400 dark:bg-neutral-800 dark:text-white"
             >
-              Hủy
+              Đóng
             </button>
             <button
               onClick={() => setIsRequestAssetOpen(true)}
@@ -508,13 +534,15 @@ const EditTaskModal = ({
             >
               Yêu cầu tài sản
             </button>
-            <button
-              onClick={handleSave}
-              disabled={!isChanged || !!dateError}
-              className={`rounded-lg px-4 py-2 text-sm text-white transition ${!isChanged || !!dateError ? "cursor-not-allowed bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
-            >
-              Lưu thay đổi
-            </button>
+            {!isStaff && (
+              <button
+                onClick={handleSave}
+                disabled={!isChanged || !!dateError}
+                className={`rounded-lg px-4 py-2 text-sm text-white transition ${!isChanged || !!dateError ? "cursor-not-allowed bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+              >
+                Lưu thay đổi
+              </button>
+            )}
           </div>
         </div>
         {isRequestAssetOpen && (

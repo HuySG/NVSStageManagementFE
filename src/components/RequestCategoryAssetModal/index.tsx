@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-
 import {
   useGetAssetTypesQuery,
   AssetType,
@@ -7,6 +6,9 @@ import {
   useCreateAssetRequestCategoryMutation,
 } from "@/state/api";
 import { toast } from "react-toastify";
+
+const ALLOWED_ASSET_TYPE_ID = "de2b478c-a4a4-4b9d-9f39-e3a7ee5b29da";
+const ALLOWED_ASSET_TYPE_NAME = "Không gian sử dụng (Phòng/Sân khấu)";
 
 type RequestAssetCategoryModalProps = {
   taskId: string;
@@ -24,10 +26,7 @@ const RequestAssetCategoryModal = ({
   const [selectedAssetTypeId, setSelectedAssetTypeId] = useState("");
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<
-    {
-      categoryID: string;
-      quantity: number;
-    }[]
+    { categoryID: string; quantity: number }[]
   >([]);
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
@@ -48,7 +47,7 @@ const RequestAssetCategoryModal = ({
 
   useEffect(() => {
     if (isSuccess) {
-      toast.success("Request submitted successfully!", { autoClose: 5000 });
+      toast.success("Gửi yêu cầu thành công!", { autoClose: 4000 });
       onClose();
     }
   }, [isSuccess, onClose]);
@@ -73,24 +72,45 @@ const RequestAssetCategoryModal = ({
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    if (!title.trim()) errors.title = "Title is required";
-    if (!description.trim()) errors.description = "Description is required";
-    if (!startTime) errors.startTime = "Start time is required";
-    if (!endTime) errors.endTime = "End time is required";
-    if (!selectedAssetTypeId) errors.assetType = "Asset Type is required";
+    if (!title.trim()) errors.title = "Vui lòng nhập tiêu đề";
+    if (!description.trim()) errors.description = "Vui lòng nhập mô tả";
+    if (!startTime) errors.startTime = "Chọn thời gian bắt đầu";
+    if (!endTime) errors.endTime = "Chọn thời gian kết thúc";
+    if (!selectedAssetTypeId) errors.assetType = "Chọn loại tài sản";
 
-    if (startTime && endTime && new Date(startTime) >= new Date(endTime)) {
-      errors.endTime = "End time must be after start time";
+    // Không cho phép loại tài sản Không gian sử dụng (Phòng/Sân khấu)
+    const selectedType = assetTypes.find((t) => t.id === selectedAssetTypeId);
+    if (
+      selectedType &&
+      selectedType.id === ALLOWED_ASSET_TYPE_ID &&
+      selectedType.name === ALLOWED_ASSET_TYPE_NAME
+    ) {
+      errors.assetType =
+        "Không được mượn loại tài sản Không gian sử dụng (Phòng/Sân khấu)";
+    }
+
+    const now = new Date();
+    const start = startTime ? new Date(startTime) : null;
+    const end = endTime ? new Date(endTime) : null;
+
+    if (start && start < now) {
+      errors.startTime = "Thời gian bắt đầu phải ở hiện tại hoặc tương lai";
+    }
+    if (end && end < now) {
+      errors.endTime = "Thời gian kết thúc phải ở hiện tại hoặc tương lai";
+    }
+    if (start && end && start >= end) {
+      errors.endTime = "Thời gian kết thúc phải sau thời gian bắt đầu";
     }
 
     if (selectedCategories.length === 0) {
-      errors.categories = "Select at least one category";
+      errors.categories = "Chọn ít nhất một danh mục";
     }
 
     selectedCategories.forEach((cat) => {
       if (cat.quantity <= 0 || !Number.isInteger(cat.quantity)) {
         errors[`quantity-${cat.categoryID}`] =
-          "Quantity must be an integer greater than 0";
+          "Số lượng phải là số nguyên dương";
       }
     });
 
@@ -100,7 +120,6 @@ const RequestAssetCategoryModal = ({
 
   const getServerErrorMessage = (error: any) => {
     if (!error) return null;
-
     if ("status" in error) {
       if (
         error.data &&
@@ -112,19 +131,16 @@ const RequestAssetCategoryModal = ({
       if (typeof error.data === "string") {
         return error.data;
       }
-      return `Server Error: ${error.status}`;
+      return `Lỗi máy chủ: ${error.status}`;
     }
-
     if (error.message) {
       return error.message;
     }
-
-    return "Something went wrong, please try again.";
+    return "Có lỗi xảy ra, vui lòng thử lại.";
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     const requestData = {
       taskID: taskId,
       title,
@@ -138,86 +154,134 @@ const RequestAssetCategoryModal = ({
         return {
           categoryID: c.categoryID,
           quantity: c.quantity,
-          name: matched?.name ?? "", // đảm bảo có `name`
+          name: matched?.name ?? "",
         };
       }),
     };
-
     try {
       await createCategoryRequest(requestData).unwrap();
     } catch (err: any) {
-      toast.error(getServerErrorMessage(err), { autoClose: 5000 });
+      toast.error(getServerErrorMessage(err), { autoClose: 4000 });
       console.error("Error submitting category request:", err);
     }
   };
 
-  const getErrorMessage = (field: string) => {
-    return validationErrors[field] ? (
+  const getErrorMessage = (field: string) =>
+    validationErrors[field] ? (
       <p className="mt-1 text-sm text-red-500">{validationErrors[field]}</p>
     ) : null;
-  };
+
+  // Giới hạn min thời gian input là hiện tại
+  const nowLocal = new Date();
+  const minDateTimeLocal = nowLocal.toISOString().slice(0, 16);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg dark:bg-dark-secondary">
-        <h2 className="mb-6 text-xl font-semibold text-gray-800 dark:text-white">
-          Request Asset by Category
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="relative w-full max-w-xl rounded-2xl bg-white p-7 shadow-xl dark:bg-dark-secondary">
+        {/* Header */}
+        <button
+          className="absolute right-5 top-5 text-gray-400 hover:text-blue-600"
+          onClick={onClose}
+          aria-label="Đóng"
+        >
+          ×
+        </button>
+        <h2 className="mb-5 text-center text-2xl font-bold text-blue-700 dark:text-blue-300">
+          Yêu cầu tài sản theo danh mục
         </h2>
-
         {/* Title */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Request Title
+        <div className="mb-3">
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Tiêu đề yêu cầu <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-300 p-3 dark:bg-dark-tertiary dark:text-white"
+            className="input-custom"
+            placeholder="Nhập tiêu đề"
           />
           {getErrorMessage("title")}
         </div>
-
         {/* Description */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Description
+        <div className="mb-3">
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Mô tả <span className="text-red-500">*</span>
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-300 p-3 dark:bg-dark-tertiary dark:text-white"
+            className="input-custom"
+            placeholder="Nhập mô tả chi tiết"
+            rows={2}
           />
           {getErrorMessage("description")}
         </div>
-
+        {/* Time Range */}
+        <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+              Thời gian bắt đầu <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={startTime}
+              min={minDateTimeLocal}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="input-custom"
+            />
+            {getErrorMessage("startTime")}
+          </div>
+          <div>
+            <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+              Thời gian kết thúc <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={endTime}
+              min={minDateTimeLocal}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="input-custom"
+            />
+            {getErrorMessage("endTime")}
+          </div>
+        </div>
         {/* Asset Type */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Asset Type
+        <div className="mb-3">
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Loại tài sản <span className="text-red-500">*</span>
           </label>
           <select
             value={selectedAssetTypeId}
             onChange={(e) => setSelectedAssetTypeId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-300 p-3 dark:bg-dark-tertiary dark:text-white"
+            className="input-custom"
             disabled={assetTypesLoading}
           >
-            <option value="">Select Asset Type</option>
+            <option value="">-- Chọn loại tài sản --</option>
             {assetTypes.map((type) => (
-              <option key={type.id} value={type.id}>
+              <option
+                key={type.id}
+                value={type.id}
+                disabled={
+                  type.id === ALLOWED_ASSET_TYPE_ID &&
+                  type.name === ALLOWED_ASSET_TYPE_NAME
+                }
+              >
                 {type.name}
+                {type.id === ALLOWED_ASSET_TYPE_ID
+                  ? " (Không hỗ trợ mượn)"
+                  : ""}
               </option>
             ))}
           </select>
           {getErrorMessage("assetType")}
         </div>
-
         {/* Category + Quantity */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Categories
+          <label className="mb-1 block font-semibold text-gray-700 dark:text-gray-200">
+            Danh mục <span className="text-red-500">*</span>
           </label>
-          <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
+          <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-dark-tertiary">
             {categories.map((cat) => {
               const selected = selectedCategories.find(
                 (c) => c.categoryID === cat.categoryID,
@@ -227,7 +291,7 @@ const RequestAssetCategoryModal = ({
                   key={cat.categoryID}
                   className="flex items-center justify-between gap-2"
                 >
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={!!selected}
@@ -259,51 +323,44 @@ const RequestAssetCategoryModal = ({
             getErrorMessage(`quantity-${cat.categoryID}`),
           )}
         </div>
-
-        {/* Time Range */}
-        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Start Time
-            </label>
-            <input
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-3 dark:bg-dark-tertiary dark:text-white"
-            />
-            {getErrorMessage("startTime")}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              End Time
-            </label>
-            <input
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-3 dark:bg-dark-tertiary dark:text-white"
-            />
-            {getErrorMessage("endTime")}
-          </div>
-        </div>
-
         {/* Buttons */}
-        <div className="mt-6 flex justify-end gap-4">
+        <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg bg-gray-400 px-6 py-2 text-white hover:bg-gray-500"
+            className="rounded-xl border border-gray-300 bg-white px-6 py-2 font-semibold text-gray-600 shadow-sm transition hover:bg-gray-100"
           >
-            Cancel
+            Hủy
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded-lg bg-green-500 px-6 py-2 text-white hover:bg-green-600"
+            className={`rounded-xl bg-gradient-to-tr from-blue-600 to-blue-400 px-7 py-2 font-bold text-white shadow-lg transition hover:from-blue-700 hover:to-blue-500 ${
+              isSubmitting ? "pointer-events-none opacity-60" : ""
+            }`}
           >
-            {isSubmitting ? "Submitting..." : "Submit Request"}
+            {isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
           </button>
         </div>
+        <style jsx>{`
+          .input-custom {
+            width: 100%;
+            border: 1.5px solid #e0e7ef;
+            border-radius: 0.8rem;
+            padding: 0.5rem 0.85rem;
+            font-size: 1rem;
+            outline: none;
+            background: #f8fafc;
+            margin-bottom: 0;
+            transition:
+              border 0.15s,
+              box-shadow 0.18s;
+          }
+          .input-custom:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 1.5px #3b82f6;
+            background: #fff;
+          }
+        `}</style>
       </div>
     </div>
   );
